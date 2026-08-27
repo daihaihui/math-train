@@ -1,0 +1,1376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>口算速算训练工具</title>
+<style>
+*{
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: system-ui, -apple-system, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+}
+html,body{
+    height: 100%;
+    overflow: hidden;
+}
+body{
+    background: #f5f6f8;
+    color: #222;
+    padding: 12px 16px;
+}
+
+input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 2px solid #2563eb;
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+    position: relative;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+input[type="checkbox"]:checked {
+    background: #2563eb;
+}
+input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 5px;
+    width: 4px;
+    height: 9px;
+    border: solid #fff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+#customRule.error {
+    border-color: #ef4444;
+    background: #fef0f0;
+}
+.rule-error-tip {
+    color: #ef4444;
+    font-size: 12px;
+    margin-top: -4px;
+    margin-bottom: 8px;
+    display: none;
+}
+.rule-error-tip.show { display: block; }
+
+.panel{
+    max-width: 520px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 12px;
+    padding: 18px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.panel-header{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+.panel-title{ font-size: 20px; font-weight: 600; }
+.btn-link{
+    font-size: 14px;
+    color: #2563eb;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+.btn-link.gray{ color: #666; }
+
+#listPanel{
+    max-height: calc(100vh - 24px);
+    display: flex;
+    flex-direction: column;
+}
+.list-toolbar{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #eee;
+}
+.select-all{
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    color: #444;
+}
+.toolbar-btns{ display: flex; gap: 8px; }
+.btn-add-small,
+.btn-export-all{
+    padding: 6px 14px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    color: #fff;
+}
+.btn-add-small{ background: #2563eb; }
+.btn-export-all{ background: #10b981; }
+.btn-export-all:disabled{ background: #ccc; cursor: not-allowed; }
+.project-list{
+    flex: 1;
+    overflow-y: auto;
+    margin-bottom: 12px;
+}
+.project-item{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 8px;
+    border-bottom: 1px solid #f0f0f0;
+}
+.project-item:last-child{ border-bottom: none; }
+.project-info{ flex: 1; min-width: 0; }
+.project-name{
+    font-size: 16px;
+    font-weight: 500;
+    margin-bottom: 3px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.project-desc{ font-size: 12px; color: #888; }
+.project-actions{ display: flex; gap: 6px; flex-shrink: 0; }
+.btn-start,
+.btn-edit,
+.btn-delete{
+    padding: 5px 10px;
+    border: none;
+    border-radius: 5px;
+    font-size: 13px;
+    cursor: pointer;
+}
+.btn-start{ background: #2563eb; color: #fff; }
+.btn-edit{ background: #f0f0f0; color: #555; }
+.btn-delete{ background: #fef0f0; color: #ef4444; }
+.btn-start-large{
+    width: 100%;
+    padding: 12px;
+    background: #10b981;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.btn-start-large:disabled{ background: #ccc; cursor: not-allowed; }
+.empty-tip{
+    text-align: center;
+    color: #999;
+    padding: 40px 0;
+    font-size: 15px;
+}
+
+#editPanel{
+    display: none;
+    max-height: calc(100vh - 24px);
+    overflow-y: auto;
+}
+.section-title{
+    font-size: 15px;
+    font-weight: 600;
+    margin: 14px 0 8px;
+    color: #333;
+    padding-left: 8px;
+    border-left: 3px solid #2563eb;
+}
+.section-title:first-child{ margin-top: 0; }
+.section-tip{
+    font-size: 12px;
+    color: #999;
+    margin-bottom: 8px;
+    line-height: 1.5;
+}
+.op-types{
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+.op-types label{
+    flex: 1;
+    min-width: 55px;
+    text-align: center;
+    padding: 7px;
+    border: 1px solid #e0e0e0;
+    border-radius: 7px;
+    font-size: 15px;
+    cursor: pointer;
+}
+.op-types input{ display: none; }
+.op-types input:checked + span{ color: #2563eb; font-weight: 600; }
+.op-types label:has(input:checked){ border-color: #2563eb; background: #f0f5ff; }
+.setting-row{
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    gap: 6px;
+}
+.setting-row label{
+    min-width: 95px;
+    font-size: 14px;
+    color: #444;
+    flex-shrink: 0;
+}
+.setting-row input{
+    flex: 1;
+    padding: 7px 9px;
+    font-size: 15px;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    outline: none;
+    min-width: 0;
+}
+.setting-row .range-split{ color: #999; flex-shrink: 0; }
+.checkbox-row{
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: #444;
+}
+#importArea{
+    width: 100%;
+    min-height: 70px;
+    padding: 7px;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    font-size: 13px;
+    resize: vertical;
+    margin-bottom: 6px;
+    outline: none;
+}
+.import-tip{ font-size: 12px; color: #999; margin-bottom: 8px; }
+.btn-primary,
+.btn-secondary{
+    width: 100%;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+}
+.btn-primary{
+    padding: 12px;
+    font-size: 17px;
+    background: #2563eb;
+    color: #fff;
+    font-weight: 500;
+    margin-top: 8px;
+}
+.btn-secondary{
+    padding: 9px;
+    font-size: 14px;
+    background: #f0f0f0;
+    color: #666;
+    margin-top: 8px;
+}
+
+#quizBody{
+    display: none;
+    height: 100%;
+    max-width: 500px;
+    margin: 0 auto;
+    position: relative;
+    padding-top: 8vh;
+}
+#backBtn{
+    position: absolute;
+    top: 0;
+    right: 0;
+    font-size: 14px;
+    color: #666;
+    background: none;
+    border: none;
+    padding: 4px 8px;
+    cursor: pointer;
+}
+#question{
+    font-size: 48px;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 6vh;
+    letter-spacing: 2px;
+}
+#answerInput{
+    width: 100%;
+    padding: 16px;
+    font-size: 24px;
+    text-align: center;
+    border: 2px solid #2563eb;
+    border-radius: 10px;
+    outline: none;
+    background: #fff;
+}
+#resultBox{
+    display: none;
+    margin-top: 16px;
+    background: #fff;
+    border-radius: 10px;
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+#resultSummary{
+    font-size: 18px;
+    line-height: 1.6;
+    text-align: center;
+    margin-bottom: 12px;
+}
+#recordList{
+    max-height: 35vh;
+    overflow-y: auto;
+    border-top: 1px solid #eee;
+    padding-top: 10px;
+    font-size: 14px;
+}
+.record-header,
+.record-item{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 2px;
+}
+.record-header{
+    border-bottom: 1px solid #ddd;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 4px;
+    font-size: 12px;
+}
+.record-item{ border-bottom: 1px solid #f5f5f5; }
+.record-item.right{ color: #10b981; }
+.record-item.wrong{ color: #ef4444; }
+.record-index{ width: 24px; flex-shrink: 0; }
+.record-question{ flex: 1; text-align: left; min-width: 0; padding-right: 4px; }
+.record-user{ width: 48px; text-align: right; flex-shrink: 0; }
+.record-correct{ width: 48px; text-align: right; flex-shrink: 0; }
+.record-error{ width: 42px; text-align: right; flex-shrink: 0; font-size: 11px; }
+.record-time{ width: 42px; text-align: right; flex-shrink: 0; font-size: 11px; }
+.wrong{ color: #ef4444; }
+.correct{ color: #10b981; }
+
+.finish-actions{
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+.btn-export,
+.btn-restart,
+#endGameBtn{
+    flex: 1;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    color: #fff;
+    padding: 10px;
+    font-size: 14px;
+}
+.btn-export{ background: #10b981; }
+.btn-export:disabled{ background: #ccc; cursor: not-allowed; }
+.btn-restart{ background: #f59e0b; }
+#endGameBtn{ background: #2563eb; }
+#statusBar{
+    text-align: center;
+    color: #666;
+    font-size: 15px;
+    margin-top: 14px;
+}
+</style>
+</head>
+<body>
+
+<!-- 1. 项目列表面板 -->
+<div id="listPanel" class="panel">
+    <div class="panel-header">
+        <div class="panel-title">口算训练项目</div>
+    </div>
+    <div class="list-toolbar">
+        <label class="select-all">
+            <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+            <span>全选</span>
+        </label>
+        <div class="toolbar-btns">
+            <button class="btn-add-small" onclick="openEdit()">新建项目</button>
+            <button class="btn-export-all" id="exportAllBtn" onclick="exportSelectedProjects()" disabled>导出错题</button>
+        </div>
+    </div>
+    <div class="project-list" id="projectList">
+        <div class="empty-tip">暂无项目，点击右上角新建</div>
+    </div>
+    <button class="btn-start-large" id="startMultiBtn" onclick="startMultiTrain()" disabled>开始训练</button>
+</div>
+
+<!-- 2. 编辑项目面板 -->
+<div id="editPanel" class="panel">
+    <div class="panel-header">
+        <button class="btn-link gray" onclick="backToList()">← 返回</button>
+        <div class="panel-title" id="editTitle">新建项目</div>
+        <div style="width:40px"></div>
+    </div>
+    <div class="setting-row">
+        <label>项目名称</label>
+        <input type="text" id="projectName" placeholder="例如：20以内退位减法">
+    </div>
+    <div class="section-title">运算类型设置</div>
+    <div class="section-tip">可不选，纯导入题目训练</div>
+    <div class="op-types">
+        <label><input type="checkbox" id="opAdd"><span>加法 +</span></label>
+        <label><input type="checkbox" id="opSub"><span>减法 −</span></label>
+        <label><input type="checkbox" id="opMul"><span>乘法 ×</span></label>
+        <label><input type="checkbox" id="opDiv"><span>除法 ÷</span></label>
+    </div>
+    <div class="setting-row">
+        <label>操作数A范围</label>
+        <input type="number" id="numAMin" placeholder="最小">
+        <span class="range-split">~</span>
+        <input type="number" id="numAMax" placeholder="最大">
+    </div>
+    <div class="setting-row">
+        <label>操作数B范围</label>
+        <input type="number" id="numBMin" placeholder="最小">
+        <span class="range-split">~</span>
+        <input type="number" id="numBMax" placeholder="最大">
+    </div>
+    <div class="setting-row">
+        <label>结果范围</label>
+        <input type="number" id="resMin" placeholder="不限制">
+        <span class="range-split">~</span>
+        <input type="number" id="resMax" placeholder="不限制">
+    </div>
+    <div class="setting-row">
+        <label>自定义规则</label>
+        <input type="text" id="customRule" placeholder="如 A-10<B、(A+B)×2<30">
+    </div>
+    <div class="rule-error-tip" id="ruleErrorTip"></div>
+    <div class="section-tip">格式：左表达式 比较符 右表达式。变量用A、B，支持加减乘除括号。比较符：&lt; &gt; &lt;= &gt;= =。示例：A+B&lt;10、A-10&gt;=B、(A+B)÷2&lt;=8</div>
+    <div class="checkbox-row">
+        <input type="checkbox" id="subNonNegative" checked>
+        <label for="subNonNegative">减法保证结果非负</label>
+    </div>
+    <div class="section-title">权重参数设置</div>
+    <div class="section-tip">答错加权重，答对快答衰减，慢题答对不衰减。抽题直接按权重随机。</div>
+    <div class="setting-row">
+        <label>新题初始权重</label>
+        <input type="number" id="weightInit" value="2" min="1" step="0.5">
+    </div>
+    <div class="setting-row">
+        <label>答错增量</label>
+        <input type="number" id="weightAdd" value="5" min="0" step="0.5">
+    </div>
+    <div class="setting-row">
+        <label>答对衰减率</label>
+        <input type="number" id="weightDecay" value="0.9" min="0.1" max="1" step="0.05">
+    </div>
+    <div class="setting-row">
+        <label>最小权重</label>
+        <input type="number" id="weightMin" value="1" min="0.5" step="0.5">
+    </div>
+    <div class="setting-row">
+        <label>最大权重</label>
+        <input type="number" id="weightMax" value="20" min="1" step="1">
+    </div>
+    <div class="setting-row">
+        <label>出题冷却数</label>
+        <input type="number" id="cooldownCount" value="3" min="0" max="10" step="1">
+    </div>
+    <div class="section-tip">最近N道出过的题暂时不抽，防止错题反复连续出现。设为0则不冷却。</div>
+    <div class="section-title">训练参数设置</div>
+    <div class="setting-row">
+        <label>允许误差率(%)</label>
+        <input type="number" id="tolPercentInput" value="0" min="0" step="0.1">
+    </div>
+    <div class="setting-row">
+        <label>单题时限(秒)</label>
+        <input type="number" id="timeInput" value="3" min="0.1" step="0.1">
+    </div>
+    <div class="setting-row">
+        <label>总题量</label>
+        <input type="number" id="totalInput" value="10" min="1" step="1">
+    </div>
+    <div class="section-title">题目导入（可选）</div>
+    <textarea id="importArea" placeholder="每行一道题，支持单步和多步，如：12+5、1+2+3、10-3-2"></textarea>
+    <div class="import-tip">导入题目将与自动生成题目混合进入题库。自定义规则仅对自动生成题目生效，导入题目不做规则过滤。</div>
+    <button class="btn-primary" onclick="saveProject()">保存项目</button>
+    <button class="btn-secondary" onclick="resetProjectWeights()">重置该项目错题权重</button>
+</div>
+
+<!-- 3. 答题面板 -->
+<div id="quizBody">
+    <button id="backBtn" onclick="exitTrain()">返回</button>
+    <div id="question">准备中...</div>
+    <input type="number" id="answerInput" placeholder="输入答案">
+    <div id="resultBox">
+        <div id="resultSummary"></div>
+        <div id="recordList"></div>
+        <div class="finish-actions">
+            <button id="exportBtn" class="btn-export" onclick="exportWrongQuestions()">导出错题</button>
+            <button class="btn-restart" onclick="restartTrain()">再来一轮</button>
+            <button id="endGameBtn" onclick="exitTrain()">返回列表</button>
+        </div>
+    </div>
+    <div id="statusBar"></div>
+</div>
+
+<script>
+const STORAGE_KEY = 'math_train_projects';
+const COOLDOWN_DEFAULT = 3;
+
+// ========== DOM缓存 ==========
+const dom = {};
+function initDomCache() {
+    dom.listPanel = document.getElementById('listPanel');
+    dom.editPanel = document.getElementById('editPanel');
+    dom.quizBody = document.getElementById('quizBody');
+    dom.projectList = document.getElementById('projectList');
+    dom.selectAll = document.getElementById('selectAll');
+    dom.startMultiBtn = document.getElementById('startMultiBtn');
+    dom.exportAllBtn = document.getElementById('exportAllBtn');
+    dom.editTitle = document.getElementById('editTitle');
+    dom.question = document.getElementById('question');
+    dom.answerInput = document.getElementById('answerInput');
+    dom.resultBox = document.getElementById('resultBox');
+    dom.resultSummary = document.getElementById('resultSummary');
+    dom.recordList = document.getElementById('recordList');
+    dom.exportBtn = document.getElementById('exportBtn');
+    dom.endGameBtn = document.getElementById('endGameBtn');
+    dom.statusBar = document.getElementById('statusBar');
+    dom.customRule = document.getElementById('customRule');
+    dom.ruleErrorTip = document.getElementById('ruleErrorTip');
+}
+
+// ========== 全局状态 ==========
+let projects = [];
+let currentProjectId = null;
+let selectedIds = new Set();
+
+// 训练状态
+let currentConfig = null;
+let questionPool = [];
+let currentQuestion = null;
+let timeoutTimer = null;
+let isAnswered = false;
+let totalCount = 0;
+let rightCount = 0;
+let trainRecords = [];
+let questionStartTime = 0;
+let totalUseTime = 0;
+let recentQueue = []; // 最近出过的题目expression队列，用于冷却
+
+// ========== P75计算 ==========
+function calculateP75(times) {
+    if (!times || times.length === 0) return null;
+    const sorted = [...times].sort((a, b) => a - b);
+    const index = Math.ceil(sorted.length * 0.75) - 1;
+    return sorted[Math.max(0, index)];
+}
+
+// ========== 自定义规则：校验 + 过滤 ==========
+function preprocessRule(ruleStr) {
+    return ruleStr.trim()
+        .replace(/\s+/g, '')
+        .replace(/＜/g, '<').replace(/＞/g, '>').replace(/＝/g, '=')
+        .replace(/＋/g, '+').replace(/－/g, '-')
+        .replace(/×/g, '*').replace(/÷/g, '/');
+}
+
+function validateCustomRule(ruleStr) {
+    if (!ruleStr || !ruleStr.trim()) {
+        return { valid: true, message: '', left: '', op: '', right: '' };
+    }
+    const rule = preprocessRule(ruleStr);
+    if (!/^[ABab\d\.\+\-\*\/\<\>\=\(\)]+$/.test(rule)) {
+        return { valid: false, message: '规则包含非法字符，只允许A、B、数字、小数点、+-*/()、比较符' };
+    }
+    let op = '', opIndex = -1;
+    for (let i = 0; i < rule.length; i++) {
+        const ch = rule[i];
+        if (ch === '<' || ch === '>' || ch === '=') {
+            if ((ch === '<' || ch === '>') && rule[i + 1] === '=') {
+                op = ch + '='; opIndex = i;
+            } else {
+                op = ch; opIndex = i;
+            }
+            break;
+        }
+    }
+    if (opIndex === -1) return { valid: false, message: '缺少比较符，请使用 < > <= >= = 之一' };
+    const left = rule.substring(0, opIndex);
+    const right = rule.substring(opIndex + op.length);
+    if (!left) return { valid: false, message: '比较符左边缺少表达式' };
+    if (!right) return { valid: false, message: '比较符右边缺少表达式' };
+    const exprPattern = /^[ABab\d\.\+\-\*\/\(\)]+$/;
+    if (!exprPattern.test(left)) return { valid: false, message: '比较符左边表达式包含非法字符' };
+    if (!exprPattern.test(right)) return { valid: false, message: '比较符右边表达式包含非法字符' };
+    function checkParens(expr) {
+        let depth = 0;
+        for (const ch of expr) {
+            if (ch === '(') depth++;
+            if (ch === ')') depth--;
+            if (depth < 0) return false;
+        }
+        return depth === 0;
+    }
+    if (!checkParens(left)) return { valid: false, message: '比较符左边括号不匹配' };
+    if (!checkParens(right)) return { valid: false, message: '比较符右边括号不匹配' };
+    function checkExprValid(expr) {
+        const t = expr.replace(/[ABab]/g, '1');
+        if (/^[\+\*\/]/.test(t)) return false;
+        if (/[\+\-\*\/]$/.test(t)) return false;
+        if (/[\+\-\*\/]{2,}/.test(t)) return false;
+        if (/[\(\)][\+\*\/]/.test(t)) return false;
+        if (/[\+\-\*\/]\)/.test(t)) return false;
+        if (/\(\)/.test(t)) return false;
+        try { const v = eval(t); if (typeof v !== 'number' || isNaN(v)) return false; } catch (e) { return false; }
+        return true;
+    }
+    if (!checkExprValid(left)) return { valid: false, message: '比较符左边表达式格式不正确' };
+    if (!checkExprValid(right)) return { valid: false, message: '比较符右边表达式格式不正确' };
+    return { valid: true, message: '', left, op, right };
+}
+
+function checkCustomRule(a, b, ruleStr) {
+    if (!ruleStr || !ruleStr.trim()) return true;
+    const { valid, left, op, right } = validateCustomRule(ruleStr);
+    if (!valid) return true;
+    try {
+        const replaceVars = expr => expr.replace(/[Aa]/g, a).replace(/[Bb]/g, b);
+        const leftVal = eval(replaceVars(left));
+        const rightVal = eval(replaceVars(right));
+        switch (op) {
+            case '<': return leftVal < rightVal;
+            case '>': return leftVal > rightVal;
+            case '<=': return leftVal <= rightVal;
+            case '>=': return leftVal >= rightVal;
+            case '=': return leftVal === rightVal;
+            default: return true;
+        }
+    } catch (e) { return true; }
+}
+
+function showRuleError(message) {
+    if (message) {
+        dom.customRule.classList.add('error');
+        dom.ruleErrorTip.textContent = message;
+        dom.ruleErrorTip.classList.add('show');
+    } else {
+        dom.customRule.classList.remove('error');
+        dom.ruleErrorTip.classList.remove('show');
+    }
+}
+
+// ========== 工具函数 ==========
+function calcResultByExpr(expr) {
+    try {
+        if (!/^[\d\.\+\-\*\/\(\)\s]+$/.test(expr)) return null;
+        return eval(expr);
+    } catch (e) { return null; }
+}
+
+function calcResult(a, b, op) {
+    switch (op) {
+        case '+': return a + b;
+        case '-': return a - b;
+        case '×': return a * b;
+        case '÷': return b !== 0 ? a / b : 0;
+        default: return 0;
+    }
+}
+
+function copyToClipboard(text) {
+    const fallback = () => {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        alert('已复制到剪贴板');
+    };
+    if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(text).then(() => alert('已复制到剪贴板')).catch(fallback);
+    } else { fallback(); }
+}
+
+// ========== 项目管理 ==========
+function loadProjects() {
+    try { projects = JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+    catch (e) { projects = []; }
+    projects.forEach(p => {
+        if (!p.answerTimeHistory) p.answerTimeHistory = [];
+    });
+    renderProjectList();
+}
+
+function saveProjects() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(projects)); } catch (e) {}
+}
+
+function renderProjectList() {
+    if (projects.length === 0) {
+        dom.projectList.innerHTML = '<div class="empty-tip">暂无项目，点击右上角新建</div>';
+        dom.exportAllBtn.disabled = true;
+        dom.startMultiBtn.disabled = true;
+        return;
+    }
+    let html = '';
+    projects.forEach(p => {
+        const opsText = p.config.ops?.length ? p.config.ops.join(' ') : '纯导入';
+        const desc = `${opsText} | 共${p.config.totalQuestions}题 | ${p.config.timeLimit}秒/题`;
+        const checked = selectedIds.has(p.id) ? 'checked' : '';
+        html += `
+        <div class="project-item">
+            <input type="checkbox" class="project-check" ${checked} onchange="toggleSelect('${p.id}')">
+            <div class="project-info">
+                <div class="project-name">${p.name}</div>
+                <div class="project-desc">${desc}</div>
+            </div>
+            <div class="project-actions">
+                <button class="btn-start" onclick="startTrain('${p.id}')">开始</button>
+                <button class="btn-edit" onclick="openEdit('${p.id}')">编辑</button>
+                <button class="btn-delete" onclick="deleteProject('${p.id}')">删除</button>
+            </div>
+        </div>`;
+    });
+    dom.projectList.innerHTML = html;
+    dom.exportAllBtn.disabled = selectedIds.size === 0;
+    dom.startMultiBtn.disabled = selectedIds.size === 0;
+    dom.selectAll.checked = projects.length > 0 && selectedIds.size === projects.length;
+}
+
+function toggleSelectAll() {
+    dom.selectAll.checked
+        ? projects.forEach(p => selectedIds.add(p.id))
+        : selectedIds.clear();
+    renderProjectList();
+}
+
+function toggleSelect(id) {
+    selectedIds.has(id) ? selectedIds.delete(id) : selectedIds.add(id);
+    renderProjectList();
+}
+
+function openEdit(id) {
+    currentProjectId = id || null;
+    dom.editTitle.textContent = id ? '编辑项目' : '新建项目';
+    showRuleError('');
+    const cfg = id ? projects.find(p => p.id === id)?.config : null;
+    const setVal = (elId, val) => document.getElementById(elId).value = val ?? '';
+    const setCheck = (elId, val) => document.getElementById(elId).checked = val ?? false;
+    if (cfg) {
+        setVal('projectName', projects.find(p => p.id === id).name);
+        setCheck('opAdd', cfg.ops?.includes('+'));
+        setCheck('opSub', cfg.ops?.includes('-'));
+        setCheck('opMul', cfg.ops?.includes('×'));
+        setCheck('opDiv', cfg.ops?.includes('÷'));
+        setVal('numAMin', cfg.numA?.min);
+        setVal('numAMax', cfg.numA?.max);
+        setVal('numBMin', cfg.numB?.min);
+        setVal('numBMax', cfg.numB?.max);
+        setVal('resMin', cfg.result?.min);
+        setVal('resMax', cfg.result?.max);
+        setVal('customRule', cfg.customRule);
+        setCheck('subNonNegative', cfg.subNonNegative ?? true);
+        setVal('weightInit', cfg.weight?.init ?? 2);
+        setVal('weightAdd', cfg.weight?.add ?? 5);
+        setVal('weightDecay', cfg.weight?.decay ?? 0.9);
+        setVal('weightMin', cfg.weight?.min ?? 1);
+        setVal('weightMax', cfg.weight?.max ?? 20);
+        setVal('cooldownCount', cfg.weight?.cooldown ?? COOLDOWN_DEFAULT);
+        setVal('tolPercentInput', cfg.tolPercent ?? 0);
+        setVal('timeInput', cfg.timeLimit ?? 3);
+        setVal('totalInput', cfg.totalQuestions ?? 10);
+        setVal('importArea', cfg.importText);
+    } else {
+        setVal('projectName', '');
+        setCheck('opAdd', false); setCheck('opSub', false);
+        setCheck('opMul', false); setCheck('opDiv', false);
+        setVal('numAMin', ''); setVal('numAMax', '');
+        setVal('numBMin', ''); setVal('numBMax', '');
+        setVal('resMin', ''); setVal('resMax', '');
+        setVal('customRule', '');
+        setCheck('subNonNegative', true);
+        setVal('weightInit', 2);
+        setVal('weightAdd', 5);
+        setVal('weightDecay', 0.9);
+        setVal('weightMin', 1);
+        setVal('weightMax', 20);
+        setVal('cooldownCount', COOLDOWN_DEFAULT);
+        setVal('tolPercentInput', 0);
+        setVal('timeInput', 3);
+        setVal('totalInput', 10);
+        setVal('importArea', '');
+    }
+    dom.listPanel.style.display = 'none';
+    dom.editPanel.style.display = 'block';
+}
+
+function saveProject() {
+    const name = document.getElementById('projectName').value.trim();
+    if (!name) return alert('请输入项目名称');
+    const ruleInput = document.getElementById('customRule').value.trim();
+    if (ruleInput) {
+        const check = validateCustomRule(ruleInput);
+        if (!check.valid) {
+            showRuleError(check.message);
+            alert('自定义规则格式错误：' + check.message);
+            dom.customRule.focus();
+            return;
+        }
+        showRuleError('');
+    }
+    const getOps = () => {
+        const ops = [];
+        if (document.getElementById('opAdd').checked) ops.push('+');
+        if (document.getElementById('opSub').checked) ops.push('-');
+        if (document.getElementById('opMul').checked) ops.push('×');
+        if (document.getElementById('opDiv').checked) ops.push('÷');
+        return ops;
+    };
+    const ops = getOps();
+    const importText = document.getElementById('importArea').value;
+    if (ops.length === 0 && !importText.trim()) {
+        return alert('请至少选择一种运算类型，或导入题目');
+    }
+    const getNum = id => {
+        const v = document.getElementById(id).value;
+        return v ? Number(v) : undefined;
+    };
+    const config = {
+        ops,
+        numA: { min: getNum('numAMin'), max: getNum('numAMax') },
+        numB: { min: getNum('numBMin'), max: getNum('numBMax') },
+        result: { min: getNum('resMin'), max: getNum('resMax') },
+        customRule: ruleInput,
+        subNonNegative: document.getElementById('subNonNegative').checked,
+        weight: {
+            init: Number(document.getElementById('weightInit').value),
+            add: Number(document.getElementById('weightAdd').value),
+            decay: Number(document.getElementById('weightDecay').value),
+            min: Number(document.getElementById('weightMin').value),
+            max: Number(document.getElementById('weightMax').value),
+            cooldown: Number(document.getElementById('cooldownCount').value)
+        },
+        tolPercent: Number(document.getElementById('tolPercentInput').value),
+        timeLimit: Number(document.getElementById('timeInput').value),
+        totalQuestions: Number(document.getElementById('totalInput').value),
+        importText
+    };
+    if (currentProjectId) {
+        const idx = projects.findIndex(p => p.id === currentProjectId);
+        if (idx > -1) { projects[idx].name = name; projects[idx].config = config; }
+    } else {
+        projects.push({ id: 'p_' + Date.now(), name, config, weights: [], answerTimeHistory: [] });
+    }
+    saveProjects();
+    alert('保存成功');
+    backToList();
+}
+
+function deleteProject(id) {
+    if (!confirm('确定删除该项目吗？错题数据也会一起删除')) return;
+    projects = projects.filter(p => p.id !== id);
+    selectedIds.delete(id);
+    saveProjects();
+    renderProjectList();
+}
+
+function resetProjectWeights() {
+    if (!currentProjectId) return alert('请先保存项目');
+    if (!confirm('确定重置该项目的所有错题权重吗？重置后权重恢复为初始值，不计为错题')) return;
+    const p = projects.find(item => item.id === currentProjectId);
+    if (p) {
+        p.weights = [];
+        p.answerTimeHistory = [];
+        saveProjects();
+        alert('权重已重置，所有题目恢复为初始权重，不再计入错题');
+    }
+}
+
+function backToList() {
+    dom.editPanel.style.display = 'none';
+    dom.listPanel.style.display = 'flex';
+    showRuleError('');
+    renderProjectList();
+}
+
+// ========== 批量导出错题 ==========
+function exportSelectedProjects() {
+    if (selectedIds.size === 0) return;
+    let csv = '项目名称,题目,正确答案,当前权重,连续答对次数\n';
+    let totalWrong = 0;
+    selectedIds.forEach(id => {
+        const p = projects.find(item => item.id === id);
+        if (!p?.weights?.length) return;
+        const wrongList = p.weights.filter(q => (q.consecutiveRight ?? 0) < 3);
+        if (!wrongList.length) return;
+        wrongList.forEach(q => {
+            const expr = q.expression || `${q.a}${q.op}${q.b}`;
+            const result = q.result ?? calcResult(q.a, q.b, q.op);
+            csv += `"${p.name}","=""${expr}""",${result.toFixed(3)},${q.weight.toFixed(2)},${q.consecutiveRight ?? 0}\n`;
+        });
+        totalWrong += wrongList.length;
+    });
+    if (!totalWrong) return alert('选中的项目暂无错题');
+    copyToClipboard(csv);
+}
+
+// ========== 题库生成 ==========
+function buildAutoPool(cfg) {
+    const { ops, numA, numB, result, subNonNegative, customRule, weight } = cfg;
+    if (!ops?.length) return [];
+    const pool = [];
+    const aMin = numA.min ?? 1;
+    const aMax = numA.max ?? 20;
+    const bMin = numB.min ?? 1;
+    const bMax = numB.max ?? 20;
+    for (let a = aMin; a <= aMax; a++) {
+        for (let b = bMin; b <= bMax; b++) {
+            ops.forEach(op => {
+                let res = 0, valid = true;
+                switch (op) {
+                    case '+': res = a + b; break;
+                    case '-': res = a - b; if (subNonNegative && res < 0) valid = false; break;
+                    case '×': res = a * b; break;
+                    case '÷': if (b === 0) { valid = false; break; } res = a / b; break;
+                }
+                if (!valid) return;
+                if (result.min !== undefined && res < result.min) valid = false;
+                if (result.max !== undefined && res > result.max) valid = false;
+                if (!valid) return;
+                if (!checkCustomRule(a, b, customRule)) return;
+                const expression = `${a}${op}${b}`;
+                pool.push({
+                    expression, a, b, op, result: res,
+                    weight: weight.init,
+                    lastUseTime: null,
+                    answeredCount: 0,
+                    consecutiveRight: 0,
+                    slowThreshold: null
+                });
+            });
+        }
+    }
+    return pool;
+}
+
+function parseImportQuestions(text, initWeight) {
+    if (!text.trim()) return [];
+    const lines = text.trim().split('\n');
+    const pool = [];
+    lines.forEach(line => {
+        line = line.trim();
+        if (!line) return;
+        const expr = line.replace(/×/g, '*').replace(/÷/g, '/');
+        const res = calcResultByExpr(expr);
+        if (res === null || isNaN(res)) return;
+        const displayExpr = line.replace(/\*/g, '×').replace(/\//g, '÷');
+        pool.push({
+            expression: displayExpr, a: null, b: null, op: null,
+            result: res, weight: initWeight,
+            lastUseTime: null, answeredCount: 0,
+            consecutiveRight: 0, slowThreshold: null
+        });
+    });
+    return pool;
+}
+
+function loadWeightsToPool(project) {
+    if (!project.weights?.length) return;
+    questionPool.forEach(q => {
+        const match = project.weights.find(item => {
+            if (item.expression) return item.expression === q.expression;
+            return item.a === q.a && item.b === q.b && item.op === q.op;
+        });
+        if (match) {
+            q.weight = match.weight;
+            if (match.result !== undefined) q.result = match.result;
+            if (match.lastUseTime !== undefined) q.lastUseTime = match.lastUseTime;
+            if (match.answeredCount !== undefined) q.answeredCount = match.answeredCount;
+            if (match.consecutiveRight !== undefined) q.consecutiveRight = match.consecutiveRight;
+        }
+    });
+}
+
+function cacheSlowThresholds() {
+    const p75Map = {};
+    projects.forEach(p => {
+        p75Map[p.id] = calculateP75(p.answerTimeHistory);
+    });
+    questionPool.forEach(q => {
+        q.slowThreshold = p75Map[q.projectId] ?? null;
+    });
+}
+
+function saveAllWeights() {
+    const weightMap = {};
+    questionPool.forEach(q => {
+        if (!q.projectId) return;
+        if (!weightMap[q.projectId]) weightMap[q.projectId] = [];
+        weightMap[q.projectId].push({
+            expression: q.expression, a: q.a, b: q.b, op: q.op,
+            result: q.result, weight: q.weight,
+            lastUseTime: q.lastUseTime, answeredCount: q.answeredCount,
+            consecutiveRight: q.consecutiveRight
+        });
+    });
+    Object.keys(weightMap).forEach(projectId => {
+        const p = projects.find(item => item.id === projectId);
+        if (p) p.weights = weightMap[projectId];
+    });
+    saveProjects();
+}
+
+function recordAnswerTime(projectId, useTime) {
+    const p = projects.find(item => item.id === projectId);
+    if (!p) return;
+    if (!p.answerTimeHistory) p.answerTimeHistory = [];
+    p.answerTimeHistory.push(useTime);
+    if (p.answerTimeHistory.length > 100) {
+        p.answerTimeHistory.shift();
+    }
+}
+
+/**
+ * 带冷却的加权随机抽题
+ * 最近 cooldown 道出过的题暂时不参与抽题
+ * 如果过滤后题库为空（题库太小），则取消冷却
+ */
+function getWeightRandomQuestion() {
+    const cooldown = currentConfig.weight?.cooldown ?? COOLDOWN_DEFAULT;
+
+    // 构建候选池：排除最近出过的题
+    let candidates = questionPool;
+    if (cooldown > 0 && recentQueue.length > 0) {
+        candidates = questionPool.filter(q => !recentQueue.includes(q.expression));
+    }
+    // 题库太小，冷却后无候选，则取消冷却
+    if (candidates.length === 0) candidates = questionPool;
+
+    const totalWeight = candidates.reduce((sum, item) => sum + item.weight, 0);
+    if (totalWeight <= 0) return candidates[0];
+    const randomVal = Math.random() * totalWeight;
+    let curSum = 0;
+    for (const q of candidates) {
+        curSum += q.weight;
+        if (randomVal <= curSum) return q;
+    }
+    return candidates[0];
+}
+
+/**
+ * 将题目加入冷却队列
+ */
+function pushCooldown(question) {
+    const cooldown = currentConfig.weight?.cooldown ?? COOLDOWN_DEFAULT;
+    if (cooldown <= 0) return;
+    recentQueue.push(question.expression);
+    if (recentQueue.length > cooldown) {
+        recentQueue.shift();
+    }
+}
+
+function addRecord(isRight, userAnswer, useTime) {
+    const correct = currentQuestion.result;
+    const errorRate = correct === 0 ? 0 : Math.abs(userAnswer - correct) / correct * 100;
+    trainRecords.push({
+        index: totalCount, expression: currentQuestion.expression,
+        correct, user: userAnswer, isRight, errorRate, useTime
+    });
+}
+
+// ========== 训练核心逻辑 ==========
+function judgeAnswer() {
+    if (isAnswered) return;
+    const val = dom.answerInput.value.trim();
+    if (val === '') return false;
+    const userNum = Number(val);
+    if (isNaN(userNum)) return false;
+    const correct = currentQuestion.result;
+    const errorRate = correct === 0 ? 0 : Math.abs(userNum - correct) / correct * 100;
+    if (errorRate <= currentConfig.tolPercent) {
+        isAnswered = true;
+        clearTimeout(timeoutTimer);
+        const useTime = (Date.now() - questionStartTime) / 1000;
+        totalUseTime += useTime;
+        totalCount++;
+        rightCount++;
+
+        currentQuestion.answeredCount++;
+        currentQuestion.lastUseTime = useTime;
+        currentQuestion.consecutiveRight++;
+
+        const isSlow = currentQuestion.slowThreshold !== null && useTime > currentQuestion.slowThreshold;
+        if (!isSlow) {
+            currentQuestion.weight = Math.max(
+                currentConfig.weight.min,
+                currentQuestion.weight * currentConfig.weight.decay
+            );
+        }
+
+        recordAnswerTime(currentQuestion.projectId, useTime);
+        addRecord(true, userNum, useTime);
+        updateStatus();
+        setTimeout(nextQuestion, 100);
+        return true;
+    }
+    return false;
+}
+
+function handleWrong() {
+    if (isAnswered) return;
+    isAnswered = true;
+    clearTimeout(timeoutTimer);
+    const useTime = (Date.now() - questionStartTime) / 1000;
+    totalUseTime += useTime;
+    totalCount++;
+
+    currentQuestion.answeredCount++;
+    currentQuestion.lastUseTime = useTime;
+    currentQuestion.consecutiveRight = 0;
+    currentQuestion.weight = Math.min(
+        currentConfig.weight.max,
+        currentQuestion.weight + currentConfig.weight.add
+    );
+
+    const userVal = dom.answerInput.value.trim();
+    const userAnswer = userVal === '' ? null : Number(userVal);
+    addRecord(false, userAnswer, useTime);
+    updateStatus();
+    dom.resultSummary.innerHTML = `<span class="wrong">❌ 答错</span><br>正确答案：${currentQuestion.result.toFixed(3)}`;
+    dom.recordList.innerHTML = '';
+    dom.resultBox.style.display = 'block';
+    dom.answerInput.focus();
+    if (totalCount >= currentConfig.totalQuestions) {
+        setTimeout(finishTrain, 500);
+    }
+}
+
+function startTrain(projectId) {
+    currentProjectId = projectId;
+    const p = projects.find(item => item.id === projectId);
+    if (!p) return;
+    initTrainEnv(p.config);
+    const autoPool = buildAutoPool(currentConfig);
+    const importPool = parseImportQuestions(currentConfig.importText || '', currentConfig.weight.init);
+    questionPool = [...autoPool, ...importPool];
+    questionPool.forEach(q => q.projectId = projectId);
+    if (!questionPool.length) {
+        alert('当前配置下没有合法题目，请调整范围或规则');
+        return;
+    }
+    loadWeightsToPool(p);
+    cacheSlowThresholds();
+    showQuizPage();
+}
+
+function startMultiTrain() {
+    if (selectedIds.size === 0) return;
+    questionPool = [];
+    selectedIds.forEach(id => {
+        const p = projects.find(item => item.id === id);
+        if (!p) return;
+        const autoPool = buildAutoPool(p.config);
+        const importPool = parseImportQuestions(p.config.importText || '', p.config.weight.init);
+        const pool = [...autoPool, ...importPool];
+        pool.forEach(q => q.projectId = id);
+        if (p.weights?.length) {
+            pool.forEach(q => {
+                const match = p.weights.find(item => {
+                    if (item.expression) return item.expression === q.expression;
+                    return item.a === q.a && item.b === q.b && item.op === q.op;
+                });
+                if (match) {
+                    q.weight = match.weight;
+                    if (match.result !== undefined) q.result = match.result;
+                    if (match.lastUseTime !== undefined) q.lastUseTime = match.lastUseTime;
+                    if (match.answeredCount !== undefined) q.answeredCount = match.answeredCount;
+                    if (match.consecutiveRight !== undefined) q.consecutiveRight = match.consecutiveRight;
+                }
+            });
+        }
+        questionPool = questionPool.concat(pool);
+    });
+    if (!questionPool.length) {
+        alert('选中项目中没有可用题目');
+        return;
+    }
+    const firstProject = projects.find(p => selectedIds.has(p.id));
+    initTrainEnv(firstProject.config);
+    currentProjectId = null;
+    cacheSlowThresholds();
+    showQuizPage();
+}
+
+function restartTrain() {
+    if (!questionPool.length) return;
+    saveAllWeights();
+    cacheSlowThresholds();
+    totalCount = 0;
+    rightCount = 0;
+    trainRecords = [];
+    totalUseTime = 0;
+    isAnswered = false;
+    recentQueue = []; // 新一轮清空冷却队列
+    dom.resultBox.style.display = 'none';
+    dom.statusBar.textContent = '';
+    nextQuestion();
+}
+
+function initTrainEnv(config) {
+    currentConfig = config;
+    totalCount = 0;
+    rightCount = 0;
+    trainRecords = [];
+    totalUseTime = 0;
+    isAnswered = false;
+    recentQueue = [];
+}
+
+function showQuizPage() {
+    dom.listPanel.style.display = 'none';
+    dom.editPanel.style.display = 'none';
+    dom.quizBody.style.display = 'block';
+    dom.statusBar.textContent = '';
+    nextQuestion();
+}
+
+function nextQuestion() {
+    if (totalCount >= currentConfig.totalQuestions) {
+        finishTrain();
+        return;
+    }
+    clearTimeout(timeoutTimer);
+    isAnswered = false;
+    dom.resultBox.style.display = 'none';
+    dom.answerInput.value = '';
+    currentQuestion = getWeightRandomQuestion();
+    pushCooldown(currentQuestion); // 加入冷却队列
+    dom.question.textContent = `${currentQuestion.expression} = ?`;
+    questionStartTime = Date.now();
+    setTimeout(() => dom.answerInput.focus(), 50);
+    const limitMs = currentConfig.timeLimit * 1000;
+    timeoutTimer = setTimeout(handleWrong, limitMs);
+}
+
+function finishTrain() {
+    clearTimeout(timeoutTimer);
+    isAnswered = true;
+    saveAllWeights();
+    const rate = totalCount > 0 ? (rightCount / totalCount * 100).toFixed(1) : 0;
+    const avgTime = totalCount > 0 ? (totalUseTime / totalCount).toFixed(1) : '0.0';
+    dom.resultSummary.innerHTML =
+        `<span style="font-size:20px;font-weight:bold;">训练完成！</span><br>
+        总题数：${totalCount}　答对：${rightCount}<br>
+        正确率：${rate}%　平均用时：${avgTime}秒`;
+
+    let listHtml = `
+    <div class="record-header">
+        <span class="record-index">序号</span>
+        <span class="record-question">题目</span>
+        <span class="record-user">答案</span>
+        <span class="record-correct">正确</span>
+        <span class="record-error">误差</span>
+        <span class="record-time">用时</span>
+    </div>`;
+    trainRecords.forEach(item => {
+        const userText = item.user === null ? '未答' : item.user;
+        const errorText = item.isRight ? '0.0%' : item.errorRate.toFixed(1) + '%';
+        const correctText = item.correct.toFixed(3);
+        const timeText = item.useTime.toFixed(1) + 's';
+        const statusClass = item.isRight ? 'right' : 'wrong';
+        listHtml += `
+        <div class="record-item ${statusClass}">
+            <span class="record-index">${item.index}</span>
+            <span class="record-question">${item.expression}</span>
+            <span class="record-user">${userText}</span>
+            <span class="record-correct">${correctText}</span>
+            <span class="record-error">${errorText}</span>
+            <span class="record-time">${timeText}</span>
+        </div>`;
+    });
+    dom.recordList.innerHTML = listHtml;
+    const wrongCount = trainRecords.filter(i => !i.isRight).length;
+    if (wrongCount === 0) {
+        dom.exportBtn.textContent = '无错题';
+        dom.exportBtn.disabled = true;
+    } else {
+        dom.exportBtn.textContent = `导出错题(${wrongCount})`;
+        dom.exportBtn.disabled = false;
+    }
+    dom.resultBox.style.display = 'block';
+}
+
+function updateStatus() {
+    const rate = totalCount > 0 ? (rightCount / totalCount * 100).toFixed(1) : 0;
+    dom.statusBar.textContent = `已做 ${totalCount}/${currentConfig.totalQuestions} 题 | 正确 ${rightCount} | 正确率 ${rate}%`;
+}
+
+function exitTrain() {
+    clearTimeout(timeoutTimer);
+    if (questionPool.length) saveAllWeights();
+    dom.quizBody.style.display = 'none';
+    dom.listPanel.style.display = 'flex';
+    renderProjectList();
+}
+
+function exportWrongQuestions() {
+    const wrongList = trainRecords.filter(item => !item.isRight);
+    if (!wrongList.length) return;
+    let csv = '序号,题目,你的答案,正确答案,误差率(%),用时(秒)\n';
+    wrongList.forEach(item => {
+        const userText = item.user === null ? '未作答' : item.user;
+        const errorText = item.errorRate.toFixed(1);
+        const correctText = item.correct.toFixed(3);
+        const timeText = item.useTime.toFixed(1);
+        csv += `${item.index},"=""${item.expression}""","${userText}",${correctText},${errorText},${timeText}\n`;
+    });
+    copyToClipboard(csv);
+}
+
+// ========== 全局事件绑定 ==========
+function bindEvents() {
+    dom.answerInput.addEventListener('input', () => {
+        if (!isAnswered) judgeAnswer();
+    });
+    dom.customRule.addEventListener('input', () => {
+        const val = dom.customRule.value.trim();
+        if (!val) { showRuleError(''); return; }
+        const check = validateCustomRule(val);
+        showRuleError(check.valid ? '' : check.message);
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
+        if (dom.quizBody.style.display === 'block' && !isAnswered) {
+            e.preventDefault();
+            const ok = judgeAnswer();
+            if (!ok) handleWrong();
+            return;
+        }
+        if (dom.resultBox.style.display === 'block' && totalCount < currentConfig.totalQuestions) {
+            e.preventDefault();
+            nextQuestion();
+        }
+    });
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+    initDomCache();
+    bindEvents();
+    loadProjects();
+});
+</script>
+</body>
+</html>
