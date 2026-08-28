@@ -20,6 +20,7 @@ body{
     background: #f5f6f8;
     color: #222;
     padding: 12px 16px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
 }
 
 input[type="checkbox"] {
@@ -88,7 +89,7 @@ input[type="checkbox"]:checked::after {
 .btn-link.gray{ color: #666; }
 
 #listPanel{
-    max-height: calc(100vh - 24px);
+    max-height: calc(100vh - 24px - env(safe-area-inset-bottom));
     display: flex;
     flex-direction: column;
 }
@@ -177,7 +178,7 @@ input[type="checkbox"]:checked::after {
 
 #editPanel{
     display: none;
-    max-height: calc(100vh - 24px);
+    max-height: calc(100vh - 24px - env(safe-area-inset-bottom));
     overflow-y: auto;
 }
 .section-title{
@@ -279,13 +280,17 @@ input[type="checkbox"]:checked::after {
     margin-top: 8px;
 }
 
+/* 答题面板：可滚动，底部留安全区域 */
 #quizBody{
     display: none;
-    height: 100%;
     max-width: 500px;
     margin: 0 auto;
     position: relative;
-    padding-top: 8vh;
+    padding-top: 6vh;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
+    height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
 }
 #backBtn{
     position: absolute;
@@ -299,15 +304,15 @@ input[type="checkbox"]:checked::after {
     cursor: pointer;
 }
 #question{
-    font-size: 48px;
+    font-size: 44px;
     font-weight: bold;
     text-align: center;
-    margin-bottom: 6vh;
+    margin-bottom: 4vh;
     letter-spacing: 2px;
 }
 #answerInput{
     width: 100%;
-    padding: 16px;
+    padding: 14px;
     font-size: 24px;
     text-align: center;
     border: 2px solid #2563eb;
@@ -317,23 +322,23 @@ input[type="checkbox"]:checked::after {
 }
 #resultBox{
     display: none;
-    margin-top: 16px;
+    margin-top: 14px;
     background: #fff;
     border-radius: 10px;
-    padding: 16px;
+    padding: 14px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 #resultSummary{
-    font-size: 18px;
+    font-size: 17px;
     line-height: 1.6;
     text-align: center;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
 }
 #recordList{
-    max-height: 35vh;
+    max-height: 30vh;
     overflow-y: auto;
     border-top: 1px solid #eee;
-    padding-top: 10px;
+    padding-top: 8px;
     font-size: 14px;
 }
 .record-header,
@@ -341,7 +346,7 @@ input[type="checkbox"]:checked::after {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 6px 2px;
+    padding: 5px 2px;
 }
 .record-header{
     border-bottom: 1px solid #ddd;
@@ -353,19 +358,19 @@ input[type="checkbox"]:checked::after {
 .record-item{ border-bottom: 1px solid #f5f5f5; }
 .record-item.right{ color: #10b981; }
 .record-item.wrong{ color: #ef4444; }
-.record-index{ width: 24px; flex-shrink: 0; }
+.record-index{ width: 22px; flex-shrink: 0; }
 .record-question{ flex: 1; text-align: left; min-width: 0; padding-right: 4px; }
-.record-user{ width: 48px; text-align: right; flex-shrink: 0; }
-.record-correct{ width: 48px; text-align: right; flex-shrink: 0; }
-.record-error{ width: 42px; text-align: right; flex-shrink: 0; font-size: 11px; }
-.record-time{ width: 42px; text-align: right; flex-shrink: 0; font-size: 11px; }
+.record-user{ width: 44px; text-align: right; flex-shrink: 0; }
+.record-correct{ width: 44px; text-align: right; flex-shrink: 0; }
+.record-error{ width: 38px; text-align: right; flex-shrink: 0; font-size: 11px; }
+.record-time{ width: 38px; text-align: right; flex-shrink: 0; font-size: 11px; }
 .wrong{ color: #ef4444; }
 .correct{ color: #10b981; }
 
 .finish-actions{
     display: flex;
     gap: 8px;
-    margin-top: 12px;
+    margin-top: 10px;
 }
 .btn-export,
 .btn-restart,
@@ -375,8 +380,8 @@ input[type="checkbox"]:checked::after {
     border-radius: 8px;
     cursor: pointer;
     color: #fff;
-    padding: 10px;
-    font-size: 14px;
+    padding: 10px 6px;
+    font-size: 13px;
 }
 .btn-export{ background: #10b981; }
 .btn-export:disabled{ background: #ccc; cursor: not-allowed; }
@@ -385,8 +390,8 @@ input[type="checkbox"]:checked::after {
 #statusBar{
     text-align: center;
     color: #666;
-    font-size: 15px;
-    margin-top: 14px;
+    font-size: 14px;
+    margin-top: 12px;
 }
 </style>
 </head>
@@ -455,16 +460,16 @@ input[type="checkbox"]:checked::after {
         <input type="text" id="customRule" placeholder="如 A-10<B、(A+B)×2<30">
     </div>
     <div class="rule-error-tip" id="ruleErrorTip"></div>
-    <div class="section-tip">格式：左表达式 比较符 右表达式。变量用A、B，支持加减乘除括号。比较符：&lt; &gt; &lt;= &gt;= =。示例：A+B&lt;10、A-10&gt;=B、(A+B)÷2&lt;=8</div>
+    <div class="section-tip">格式：左表达式 比较符 右表达式。变量用A、B，支持加减乘除括号。比较符：&lt; &gt; &lt;= &gt;= =。</div>
     <div class="checkbox-row">
         <input type="checkbox" id="subNonNegative" checked>
         <label for="subNonNegative">减法保证结果非负</label>
     </div>
     <div class="section-title">权重参数设置</div>
-    <div class="section-tip">答错加权重，答对快答衰减，慢题答对不衰减。抽题直接按权重随机。</div>
+    <div class="section-tip">答错加权重，答对快答衰减，慢题答对不衰减。</div>
     <div class="setting-row">
         <label>新题初始权重</label>
-        <input type="number" id="weightInit" value="2" min="1" step="0.5">
+        <input type="number" id="weightInit" value="2" min="0.5" step="0.5">
     </div>
     <div class="setting-row">
         <label>答错增量</label>
@@ -486,7 +491,7 @@ input[type="checkbox"]:checked::after {
         <label>出题冷却数</label>
         <input type="number" id="cooldownCount" value="3" min="0" max="10" step="1">
     </div>
-    <div class="section-tip">最近N道出过的题暂时不抽，防止错题反复连续出现。设为0则不冷却。</div>
+    <div class="section-tip">最近N道出过的题暂时不抽。自动生成的题只保存做过的记录。</div>
     <div class="section-title">训练参数设置</div>
     <div class="setting-row">
         <label>允许误差率(%)</label>
@@ -501,8 +506,8 @@ input[type="checkbox"]:checked::after {
         <input type="number" id="totalInput" value="10" min="1" step="1">
     </div>
     <div class="section-title">题目导入（可选）</div>
-    <textarea id="importArea" placeholder="每行一道题，支持单步和多步，如：12+5、1+2+3、10-3-2"></textarea>
-    <div class="import-tip">导入题目将与自动生成题目混合进入题库。自定义规则仅对自动生成题目生效，导入题目不做规则过滤。</div>
+    <textarea id="importArea" placeholder="每行一道题，支持单步和多步，如：12+5、1+2+3"></textarea>
+    <div class="import-tip">导入题目固定存在题库中。自动生成题目动态生成。</div>
     <button class="btn-primary" onclick="saveProject()">保存项目</button>
     <button class="btn-secondary" onclick="resetProjectWeights()">重置该项目错题权重</button>
 </div>
@@ -527,6 +532,79 @@ input[type="checkbox"]:checked::after {
 <script>
 const STORAGE_KEY = 'math_train_projects';
 const COOLDOWN_DEFAULT = 3;
+const NEW_QUESTION_BIAS = 10;
+
+// ========== 内置默认项目（保存在HTML中，发给别人打开就有）==========
+const DEFAULT_PROJECTS = [
+    {
+        id: 'default_20_sub',
+        name: '20以内退位减法',
+        config: {
+            ops: ['-'],
+            numA: { min: 11, max: 18 },
+            numB: { min: 2, max: 9 },
+            result: { min: undefined, max: undefined },
+            customRule: '',
+            subNonNegative: true,
+            weight: { init: 2, add: 5, decay: 0.9, min: 1, max: 20, cooldown: 3 },
+            tolPercent: 0,
+            timeLimit: 3,
+            totalQuestions: 10,
+            importText: ''
+        }
+    },
+    {
+        id: 'default_100_add',
+        name: '100以内加法',
+        config: {
+            ops: ['+'],
+            numA: { min: 10, max: 89 },
+            numB: { min: 1, max: 9 },
+            result: { min: undefined, max: 100 },
+            customRule: '',
+            subNonNegative: true,
+            weight: { init: 2, add: 5, decay: 0.9, min: 1, max: 20, cooldown: 3 },
+            tolPercent: 0,
+            timeLimit: 5,
+            totalQuestions: 10,
+            importText: ''
+        }
+    },
+    {
+        id: 'default_mul99',
+        name: '乘法口诀表',
+        config: {
+            ops: ['×'],
+            numA: { min: 2, max: 9 },
+            numB: { min: 2, max: 9 },
+            result: { min: undefined, max: undefined },
+            customRule: '',
+            subNonNegative: true,
+            weight: { init: 2, add: 5, decay: 0.9, min: 1, max: 20, cooldown: 3 },
+            tolPercent: 0,
+            timeLimit: 4,
+            totalQuestions: 10,
+            importText: ''
+        }
+    },
+    {
+        id: 'default_mix20',
+        name: '20以内加减混合',
+        config: {
+            ops: ['+', '-'],
+            numA: { min: 1, max: 19 },
+            numB: { min: 1, max: 19 },
+            result: { min: 0, max: 20 },
+            customRule: '',
+            subNonNegative: true,
+            weight: { init: 2, add: 5, decay: 0.9, min: 1, max: 20, cooldown: 3 },
+            tolPercent: 0,
+            timeLimit: 3,
+            totalQuestions: 10,
+            importText: ''
+        }
+    }
+];
 
 // ========== DOM缓存 ==========
 const dom = {};
@@ -556,7 +634,6 @@ let projects = [];
 let currentProjectId = null;
 let selectedIds = new Set();
 
-// 训练状态
 let currentConfig = null;
 let questionPool = [];
 let currentQuestion = null;
@@ -567,115 +644,47 @@ let rightCount = 0;
 let trainRecords = [];
 let questionStartTime = 0;
 let totalUseTime = 0;
-let recentQueue = []; // 最近出过的题目expression队列，用于冷却
+let recentQueue = [];
+let trainingActive = false;
 
-// ========== P75计算 ==========
+// ========== 工具函数 ==========
+function isValidNum(v) {
+    return typeof v === 'number' && isFinite(v) && !isNaN(v);
+}
+
+function sanitizeWeight(q) {
+    if (!q.wc) q.wc = { init: 2, add: 5, decay: 0.9, min: 1, max: 20 };
+    if (!isValidNum(q.weight) || q.weight <= 0) q.weight = q.wc.init;
+    if (q.weight < q.wc.min) q.weight = q.wc.min;
+    if (q.weight > q.wc.max) q.weight = q.wc.max;
+}
+
+function buildWeightConfig(cfg) {
+    const w = cfg.weight || {};
+    return {
+        init: isValidNum(w.init) ? w.init : 2,
+        add: isValidNum(w.add) ? w.add : 5,
+        decay: isValidNum(w.decay) ? w.decay : 0.9,
+        min: isValidNum(w.min) ? w.min : 1,
+        max: isValidNum(w.max) ? w.max : 20
+    };
+}
+
 function calculateP75(times) {
     if (!times || times.length === 0) return null;
-    const sorted = [...times].sort((a, b) => a - b);
+    const valid = times.filter(t => isValidNum(t) && t > 0);
+    if (valid.length === 0) return null;
+    const sorted = [...valid].sort((a, b) => a - b);
     const index = Math.ceil(sorted.length * 0.75) - 1;
     return sorted[Math.max(0, index)];
 }
 
-// ========== 自定义规则：校验 + 过滤 ==========
-function preprocessRule(ruleStr) {
-    return ruleStr.trim()
-        .replace(/\s+/g, '')
-        .replace(/＜/g, '<').replace(/＞/g, '>').replace(/＝/g, '=')
-        .replace(/＋/g, '+').replace(/－/g, '-')
-        .replace(/×/g, '*').replace(/÷/g, '/');
-}
-
-function validateCustomRule(ruleStr) {
-    if (!ruleStr || !ruleStr.trim()) {
-        return { valid: true, message: '', left: '', op: '', right: '' };
-    }
-    const rule = preprocessRule(ruleStr);
-    if (!/^[ABab\d\.\+\-\*\/\<\>\=\(\)]+$/.test(rule)) {
-        return { valid: false, message: '规则包含非法字符，只允许A、B、数字、小数点、+-*/()、比较符' };
-    }
-    let op = '', opIndex = -1;
-    for (let i = 0; i < rule.length; i++) {
-        const ch = rule[i];
-        if (ch === '<' || ch === '>' || ch === '=') {
-            if ((ch === '<' || ch === '>') && rule[i + 1] === '=') {
-                op = ch + '='; opIndex = i;
-            } else {
-                op = ch; opIndex = i;
-            }
-            break;
-        }
-    }
-    if (opIndex === -1) return { valid: false, message: '缺少比较符，请使用 < > <= >= = 之一' };
-    const left = rule.substring(0, opIndex);
-    const right = rule.substring(opIndex + op.length);
-    if (!left) return { valid: false, message: '比较符左边缺少表达式' };
-    if (!right) return { valid: false, message: '比较符右边缺少表达式' };
-    const exprPattern = /^[ABab\d\.\+\-\*\/\(\)]+$/;
-    if (!exprPattern.test(left)) return { valid: false, message: '比较符左边表达式包含非法字符' };
-    if (!exprPattern.test(right)) return { valid: false, message: '比较符右边表达式包含非法字符' };
-    function checkParens(expr) {
-        let depth = 0;
-        for (const ch of expr) {
-            if (ch === '(') depth++;
-            if (ch === ')') depth--;
-            if (depth < 0) return false;
-        }
-        return depth === 0;
-    }
-    if (!checkParens(left)) return { valid: false, message: '比较符左边括号不匹配' };
-    if (!checkParens(right)) return { valid: false, message: '比较符右边括号不匹配' };
-    function checkExprValid(expr) {
-        const t = expr.replace(/[ABab]/g, '1');
-        if (/^[\+\*\/]/.test(t)) return false;
-        if (/[\+\-\*\/]$/.test(t)) return false;
-        if (/[\+\-\*\/]{2,}/.test(t)) return false;
-        if (/[\(\)][\+\*\/]/.test(t)) return false;
-        if (/[\+\-\*\/]\)/.test(t)) return false;
-        if (/\(\)/.test(t)) return false;
-        try { const v = eval(t); if (typeof v !== 'number' || isNaN(v)) return false; } catch (e) { return false; }
-        return true;
-    }
-    if (!checkExprValid(left)) return { valid: false, message: '比较符左边表达式格式不正确' };
-    if (!checkExprValid(right)) return { valid: false, message: '比较符右边表达式格式不正确' };
-    return { valid: true, message: '', left, op, right };
-}
-
-function checkCustomRule(a, b, ruleStr) {
-    if (!ruleStr || !ruleStr.trim()) return true;
-    const { valid, left, op, right } = validateCustomRule(ruleStr);
-    if (!valid) return true;
-    try {
-        const replaceVars = expr => expr.replace(/[Aa]/g, a).replace(/[Bb]/g, b);
-        const leftVal = eval(replaceVars(left));
-        const rightVal = eval(replaceVars(right));
-        switch (op) {
-            case '<': return leftVal < rightVal;
-            case '>': return leftVal > rightVal;
-            case '<=': return leftVal <= rightVal;
-            case '>=': return leftVal >= rightVal;
-            case '=': return leftVal === rightVal;
-            default: return true;
-        }
-    } catch (e) { return true; }
-}
-
-function showRuleError(message) {
-    if (message) {
-        dom.customRule.classList.add('error');
-        dom.ruleErrorTip.textContent = message;
-        dom.ruleErrorTip.classList.add('show');
-    } else {
-        dom.customRule.classList.remove('error');
-        dom.ruleErrorTip.classList.remove('show');
-    }
-}
-
-// ========== 工具函数 ==========
 function calcResultByExpr(expr) {
     try {
         if (!/^[\d\.\+\-\*\/\(\)\s]+$/.test(expr)) return null;
-        return eval(expr);
+        const v = eval(expr);
+        if (!isValidNum(v)) return null;
+        return v;
     } catch (e) { return null; }
 }
 
@@ -704,12 +713,102 @@ function copyToClipboard(text) {
     } else { fallback(); }
 }
 
+// ========== 自定义规则 ==========
+function preprocessRule(ruleStr) {
+    return ruleStr.trim()
+        .replace(/\s+/g, '')
+        .replace(/＜/g, '<').replace(/＞/g, '>').replace(/＝/g, '=')
+        .replace(/＋/g, '+').replace(/－/g, '-')
+        .replace(/×/g, '*').replace(/÷/g, '/');
+}
+
+function validateCustomRule(ruleStr) {
+    if (!ruleStr || !ruleStr.trim()) return { valid: true, message: '', left: '', op: '', right: '' };
+    const rule = preprocessRule(ruleStr);
+    if (!/^[ABab\d\.\+\-\*\/\<\>\=\(\)]+$/.test(rule))
+        return { valid: false, message: '规则包含非法字符' };
+    let op = '', opIndex = -1;
+    for (let i = 0; i < rule.length; i++) {
+        const ch = rule[i];
+        if (ch === '<' || ch === '>' || ch === '=') {
+            if ((ch === '<' || ch === '>') && rule[i + 1] === '=') { op = ch + '='; opIndex = i; }
+            else { op = ch; opIndex = i; }
+            break;
+        }
+    }
+    if (opIndex === -1) return { valid: false, message: '缺少比较符' };
+    const left = rule.substring(0, opIndex);
+    const right = rule.substring(opIndex + op.length);
+    if (!left || !right) return { valid: false, message: '比较符两侧缺少表达式' };
+    const exprPattern = /^[ABab\d\.\+\-\*\/\(\)]+$/;
+    if (!exprPattern.test(left) || !exprPattern.test(right))
+        return { valid: false, message: '表达式包含非法字符' };
+    function checkParens(expr) {
+        let d = 0;
+        for (const ch of expr) { if (ch === '(') d++; if (ch === ')') d--; if (d < 0) return false; }
+        return d === 0;
+    }
+    if (!checkParens(left) || !checkParens(right))
+        return { valid: false, message: '括号不匹配' };
+    function checkExprValid(expr) {
+        const t = expr.replace(/[ABab]/g, '1');
+        if (/^[\+\*\/]/.test(t) || /[\+\-\*\/]$/.test(t)) return false;
+        if (/[\+\-\*\/]{2,}/.test(t) || /\(\)/.test(t)) return false;
+        try { const v = eval(t); if (!isValidNum(v)) return false; } catch (e) { return false; }
+        return true;
+    }
+    if (!checkExprValid(left) || !checkExprValid(right))
+        return { valid: false, message: '表达式格式不正确' };
+    return { valid: true, message: '', left, op, right };
+}
+
+function checkCustomRule(a, b, ruleStr) {
+    if (!ruleStr || !ruleStr.trim()) return true;
+    const { valid, left, op, right } = validateCustomRule(ruleStr);
+    if (!valid) return true;
+    try {
+        const rv = e => eval(e.replace(/[Aa]/g, a).replace(/[Bb]/g, b));
+        const lv = rv(left), rvv = rv(right);
+        if (!isValidNum(lv) || !isValidNum(rvv)) return true;
+        switch (op) {
+            case '<': return lv < rvv; case '>': return lv > rvv;
+            case '<=': return lv <= rvv; case '>=': return lv >= rvv;
+            case '=': return lv === rvv; default: return true;
+        }
+    } catch (e) { return true; }
+}
+
+function showRuleError(msg) {
+    if (msg) { dom.customRule.classList.add('error'); dom.ruleErrorTip.textContent = msg; dom.ruleErrorTip.classList.add('show'); }
+    else { dom.customRule.classList.remove('error'); dom.ruleErrorTip.classList.remove('show'); }
+}
+
 // ========== 项目管理 ==========
 function loadProjects() {
-    try { projects = JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
-    catch (e) { projects = []; }
+    let stored = null;
+    try { stored = JSON.parse(localStorage.getItem(STORAGE_KEY)); }
+    catch (e) { stored = null; }
+
+    if (stored && Array.isArray(stored) && stored.length > 0) {
+        projects = stored;
+    } else {
+        // 首次使用：加载内置默认项目
+        projects = JSON.parse(JSON.stringify(DEFAULT_PROJECTS));
+        projects.forEach(p => {
+            p.seenQuestions = [];
+            p.answerTimeHistory = [];
+        });
+        saveProjects();
+    }
+
     projects.forEach(p => {
         if (!p.answerTimeHistory) p.answerTimeHistory = [];
+        p.answerTimeHistory = p.answerTimeHistory.filter(t => isValidNum(t) && t > 0);
+        if (p.weights && !p.seenQuestions) {
+            p.seenQuestions = p.weights.filter(q => (q.answeredCount ?? 0) > 0);
+            delete p.weights;
+        }
+        if (!p.seenQuestions) p.seenQuestions = [];
     });
     renderProjectList();
 }
@@ -751,9 +850,7 @@ function renderProjectList() {
 }
 
 function toggleSelectAll() {
-    dom.selectAll.checked
-        ? projects.forEach(p => selectedIds.add(p.id))
-        : selectedIds.clear();
+    dom.selectAll.checked ? projects.forEach(p => selectedIds.add(p.id)) : selectedIds.clear();
     renderProjectList();
 }
 
@@ -767,54 +864,44 @@ function openEdit(id) {
     dom.editTitle.textContent = id ? '编辑项目' : '新建项目';
     showRuleError('');
     const cfg = id ? projects.find(p => p.id === id)?.config : null;
-    const setVal = (elId, val) => document.getElementById(elId).value = val ?? '';
-    const setCheck = (elId, val) => document.getElementById(elId).checked = val ?? false;
+    const sv = (el, v) => document.getElementById(el).value = v ?? '';
+    const sc = (el, v) => document.getElementById(el).checked = v ?? false;
     if (cfg) {
-        setVal('projectName', projects.find(p => p.id === id).name);
-        setCheck('opAdd', cfg.ops?.includes('+'));
-        setCheck('opSub', cfg.ops?.includes('-'));
-        setCheck('opMul', cfg.ops?.includes('×'));
-        setCheck('opDiv', cfg.ops?.includes('÷'));
-        setVal('numAMin', cfg.numA?.min);
-        setVal('numAMax', cfg.numA?.max);
-        setVal('numBMin', cfg.numB?.min);
-        setVal('numBMax', cfg.numB?.max);
-        setVal('resMin', cfg.result?.min);
-        setVal('resMax', cfg.result?.max);
-        setVal('customRule', cfg.customRule);
-        setCheck('subNonNegative', cfg.subNonNegative ?? true);
-        setVal('weightInit', cfg.weight?.init ?? 2);
-        setVal('weightAdd', cfg.weight?.add ?? 5);
-        setVal('weightDecay', cfg.weight?.decay ?? 0.9);
-        setVal('weightMin', cfg.weight?.min ?? 1);
-        setVal('weightMax', cfg.weight?.max ?? 20);
-        setVal('cooldownCount', cfg.weight?.cooldown ?? COOLDOWN_DEFAULT);
-        setVal('tolPercentInput', cfg.tolPercent ?? 0);
-        setVal('timeInput', cfg.timeLimit ?? 3);
-        setVal('totalInput', cfg.totalQuestions ?? 10);
-        setVal('importArea', cfg.importText);
+        sv('projectName', projects.find(p => p.id === id).name);
+        sc('opAdd', cfg.ops?.includes('+')); sc('opSub', cfg.ops?.includes('-'));
+        sc('opMul', cfg.ops?.includes('×')); sc('opDiv', cfg.ops?.includes('÷'));
+        sv('numAMin', cfg.numA?.min); sv('numAMax', cfg.numA?.max);
+        sv('numBMin', cfg.numB?.min); sv('numBMax', cfg.numB?.max);
+        sv('resMin', cfg.result?.min); sv('resMax', cfg.result?.max);
+        sv('customRule', cfg.customRule);
+        sc('subNonNegative', cfg.subNonNegative ?? true);
+        sv('weightInit', cfg.weight?.init ?? 2);
+        sv('weightAdd', cfg.weight?.add ?? 5);
+        sv('weightDecay', cfg.weight?.decay ?? 0.9);
+        sv('weightMin', cfg.weight?.min ?? 1);
+        sv('weightMax', cfg.weight?.max ?? 20);
+        sv('cooldownCount', cfg.weight?.cooldown ?? COOLDOWN_DEFAULT);
+        sv('tolPercentInput', cfg.tolPercent ?? 0);
+        sv('timeInput', cfg.timeLimit ?? 3);
+        sv('totalInput', cfg.totalQuestions ?? 10);
+        sv('importArea', cfg.importText);
     } else {
-        setVal('projectName', '');
-        setCheck('opAdd', false); setCheck('opSub', false);
-        setCheck('opMul', false); setCheck('opDiv', false);
-        setVal('numAMin', ''); setVal('numAMax', '');
-        setVal('numBMin', ''); setVal('numBMax', '');
-        setVal('resMin', ''); setVal('resMax', '');
-        setVal('customRule', '');
-        setCheck('subNonNegative', true);
-        setVal('weightInit', 2);
-        setVal('weightAdd', 5);
-        setVal('weightDecay', 0.9);
-        setVal('weightMin', 1);
-        setVal('weightMax', 20);
-        setVal('cooldownCount', COOLDOWN_DEFAULT);
-        setVal('tolPercentInput', 0);
-        setVal('timeInput', 3);
-        setVal('totalInput', 10);
-        setVal('importArea', '');
+        sv('projectName', '');
+        sc('opAdd', false); sc('opSub', false); sc('opMul', false); sc('opDiv', false);
+        sv('numAMin', ''); sv('numAMax', ''); sv('numBMin', ''); sv('numBMax', '');
+        sv('resMin', ''); sv('resMax', ''); sv('customRule', '');
+        sc('subNonNegative', true);
+        sv('weightInit', 2); sv('weightAdd', 5); sv('weightDecay', 0.9);
+        sv('weightMin', 1); sv('weightMax', 20); sv('cooldownCount', COOLDOWN_DEFAULT);
+        sv('tolPercentInput', 0); sv('timeInput', 3); sv('totalInput', 10); sv('importArea', '');
     }
     dom.listPanel.style.display = 'none';
     dom.editPanel.style.display = 'block';
+}
+
+function getNumInput(id, fb) {
+    const v = Number(document.getElementById(id).value);
+    return isValidNum(v) ? v : fb;
 }
 
 function saveProject() {
@@ -822,57 +909,46 @@ function saveProject() {
     if (!name) return alert('请输入项目名称');
     const ruleInput = document.getElementById('customRule').value.trim();
     if (ruleInput) {
-        const check = validateCustomRule(ruleInput);
-        if (!check.valid) {
-            showRuleError(check.message);
-            alert('自定义规则格式错误：' + check.message);
-            dom.customRule.focus();
-            return;
-        }
+        const c = validateCustomRule(ruleInput);
+        if (!c.valid) { showRuleError(c.message); alert('自定义规则格式错误：' + c.message); dom.customRule.focus(); return; }
         showRuleError('');
     }
-    const getOps = () => {
-        const ops = [];
-        if (document.getElementById('opAdd').checked) ops.push('+');
-        if (document.getElementById('opSub').checked) ops.push('-');
-        if (document.getElementById('opMul').checked) ops.push('×');
-        if (document.getElementById('opDiv').checked) ops.push('÷');
-        return ops;
-    };
-    const ops = getOps();
+    const ops = [];
+    if (document.getElementById('opAdd').checked) ops.push('+');
+    if (document.getElementById('opSub').checked) ops.push('-');
+    if (document.getElementById('opMul').checked) ops.push('×');
+    if (document.getElementById('opDiv').checked) ops.push('÷');
     const importText = document.getElementById('importArea').value;
-    if (ops.length === 0 && !importText.trim()) {
-        return alert('请至少选择一种运算类型，或导入题目');
-    }
-    const getNum = id => {
-        const v = document.getElementById(id).value;
-        return v ? Number(v) : undefined;
-    };
+    if (ops.length === 0 && !importText.trim()) return alert('请至少选择一种运算类型，或导入题目');
+    const gn = id => { const v = document.getElementById(id).value; return v ? Number(v) : undefined; };
+
+    const wInit = getNumInput('weightInit', 2);
+    const wMin = Math.max(0.5, getNumInput('weightMin', 1));
     const config = {
         ops,
-        numA: { min: getNum('numAMin'), max: getNum('numAMax') },
-        numB: { min: getNum('numBMin'), max: getNum('numBMax') },
-        result: { min: getNum('resMin'), max: getNum('resMax') },
+        numA: { min: gn('numAMin'), max: gn('numAMax') },
+        numB: { min: gn('numBMin'), max: gn('numBMax') },
+        result: { min: gn('resMin'), max: gn('resMax') },
         customRule: ruleInput,
         subNonNegative: document.getElementById('subNonNegative').checked,
         weight: {
-            init: Number(document.getElementById('weightInit').value),
-            add: Number(document.getElementById('weightAdd').value),
-            decay: Number(document.getElementById('weightDecay').value),
-            min: Number(document.getElementById('weightMin').value),
-            max: Number(document.getElementById('weightMax').value),
-            cooldown: Number(document.getElementById('cooldownCount').value)
+            init: wInit,
+            add: Math.max(0, getNumInput('weightAdd', 5)),
+            decay: Math.min(1, Math.max(0.1, getNumInput('weightDecay', 0.9))),
+            min: wMin,
+            max: Math.max(wMin + 1, getNumInput('weightMax', 20)),
+            cooldown: Math.max(0, Math.min(10, Math.floor(getNumInput('cooldownCount', COOLDOWN_DEFAULT))))
         },
-        tolPercent: Number(document.getElementById('tolPercentInput').value),
-        timeLimit: Number(document.getElementById('timeInput').value),
-        totalQuestions: Number(document.getElementById('totalInput').value),
+        tolPercent: Math.max(0, getNumInput('tolPercentInput', 0)),
+        timeLimit: Math.max(0.1, getNumInput('timeInput', 3)),
+        totalQuestions: Math.max(1, Math.floor(getNumInput('totalInput', 10))),
         importText
     };
     if (currentProjectId) {
         const idx = projects.findIndex(p => p.id === currentProjectId);
         if (idx > -1) { projects[idx].name = name; projects[idx].config = config; }
     } else {
-        projects.push({ id: 'p_' + Date.now(), name, config, weights: [], answerTimeHistory: [] });
+        projects.push({ id: 'p_' + Date.now(), name, config, seenQuestions: [], answerTimeHistory: [] });
     }
     saveProjects();
     alert('保存成功');
@@ -880,7 +956,7 @@ function saveProject() {
 }
 
 function deleteProject(id) {
-    if (!confirm('确定删除该项目吗？错题数据也会一起删除')) return;
+    if (!confirm('确定删除该项目吗？')) return;
     projects = projects.filter(p => p.id !== id);
     selectedIds.delete(id);
     saveProjects();
@@ -889,13 +965,13 @@ function deleteProject(id) {
 
 function resetProjectWeights() {
     if (!currentProjectId) return alert('请先保存项目');
-    if (!confirm('确定重置该项目的所有错题权重吗？重置后权重恢复为初始值，不计为错题')) return;
+    if (!confirm('确定重置该项目的所有错题权重吗？')) return;
     const p = projects.find(item => item.id === currentProjectId);
     if (p) {
-        p.weights = [];
+        p.seenQuestions = [];
         p.answerTimeHistory = [];
         saveProjects();
-        alert('权重已重置，所有题目恢复为初始权重，不再计入错题');
+        alert('权重已重置');
     }
 }
 
@@ -906,20 +982,23 @@ function backToList() {
     renderProjectList();
 }
 
-// ========== 批量导出错题 ==========
+// ========== 导出错题 ==========
 function exportSelectedProjects() {
     if (selectedIds.size === 0) return;
     let csv = '项目名称,题目,正确答案,当前权重,连续答对次数\n';
     let totalWrong = 0;
     selectedIds.forEach(id => {
         const p = projects.find(item => item.id === id);
-        if (!p?.weights?.length) return;
-        const wrongList = p.weights.filter(q => (q.consecutiveRight ?? 0) < 3);
+        if (!p?.seenQuestions?.length) return;
+        const wrongList = p.seenQuestions.filter(q =>
+            (q.answeredCount ?? 0) > 0 && (q.consecutiveRight ?? 0) < 3
+        );
         if (!wrongList.length) return;
         wrongList.forEach(q => {
             const expr = q.expression || `${q.a}${q.op}${q.b}`;
-            const result = q.result ?? calcResult(q.a, q.b, q.op);
-            csv += `"${p.name}","=""${expr}""",${result.toFixed(3)},${q.weight.toFixed(2)},${q.consecutiveRight ?? 0}\n`;
+            const result = isValidNum(q.result) ? q.result : calcResult(q.a, q.b, q.op);
+            const weight = isValidNum(q.weight) ? q.weight : p.config.weight.init;
+            csv += `"${p.name}","=""${expr}""",${result.toFixed(3)},${weight.toFixed(2)},${q.consecutiveRight ?? 0}\n`;
         });
         totalWrong += wrongList.length;
     });
@@ -927,46 +1006,8 @@ function exportSelectedProjects() {
     copyToClipboard(csv);
 }
 
-// ========== 题库生成 ==========
-function buildAutoPool(cfg) {
-    const { ops, numA, numB, result, subNonNegative, customRule, weight } = cfg;
-    if (!ops?.length) return [];
-    const pool = [];
-    const aMin = numA.min ?? 1;
-    const aMax = numA.max ?? 20;
-    const bMin = numB.min ?? 1;
-    const bMax = numB.max ?? 20;
-    for (let a = aMin; a <= aMax; a++) {
-        for (let b = bMin; b <= bMax; b++) {
-            ops.forEach(op => {
-                let res = 0, valid = true;
-                switch (op) {
-                    case '+': res = a + b; break;
-                    case '-': res = a - b; if (subNonNegative && res < 0) valid = false; break;
-                    case '×': res = a * b; break;
-                    case '÷': if (b === 0) { valid = false; break; } res = a / b; break;
-                }
-                if (!valid) return;
-                if (result.min !== undefined && res < result.min) valid = false;
-                if (result.max !== undefined && res > result.max) valid = false;
-                if (!valid) return;
-                if (!checkCustomRule(a, b, customRule)) return;
-                const expression = `${a}${op}${b}`;
-                pool.push({
-                    expression, a, b, op, result: res,
-                    weight: weight.init,
-                    lastUseTime: null,
-                    answeredCount: 0,
-                    consecutiveRight: 0,
-                    slowThreshold: null
-                });
-            });
-        }
-    }
-    return pool;
-}
-
-function parseImportQuestions(text, initWeight) {
+// ========== 导入题目解析 ==========
+function parseImportQuestions(text, wc) {
     if (!text.trim()) return [];
     const lines = text.trim().split('\n');
     const pool = [];
@@ -975,162 +1016,197 @@ function parseImportQuestions(text, initWeight) {
         if (!line) return;
         const expr = line.replace(/×/g, '*').replace(/÷/g, '/');
         const res = calcResultByExpr(expr);
-        if (res === null || isNaN(res)) return;
+        if (res === null) return;
         const displayExpr = line.replace(/\*/g, '×').replace(/\//g, '÷');
         pool.push({
             expression: displayExpr, a: null, b: null, op: null,
-            result: res, weight: initWeight,
-            lastUseTime: null, answeredCount: 0,
-            consecutiveRight: 0, slowThreshold: null
+            result: res, weight: wc.init, wc: wc,
+            lastUseTime: null, answeredCount: 0, consecutiveRight: 0, slowThreshold: null
         });
     });
     return pool;
 }
 
-function loadWeightsToPool(project) {
-    if (!project.weights?.length) return;
-    questionPool.forEach(q => {
-        const match = project.weights.find(item => {
-            if (item.expression) return item.expression === q.expression;
-            return item.a === q.a && item.b === q.b && item.op === q.op;
-        });
-        if (match) {
-            q.weight = match.weight;
-            if (match.result !== undefined) q.result = match.result;
-            if (match.lastUseTime !== undefined) q.lastUseTime = match.lastUseTime;
-            if (match.answeredCount !== undefined) q.answeredCount = match.answeredCount;
-            if (match.consecutiveRight !== undefined) q.consecutiveRight = match.consecutiveRight;
+// ========== 动态生成随机题 ==========
+function generateRandomQuestion(cfg, projectId) {
+    const { ops, numA, numB, result, subNonNegative, customRule } = cfg;
+    if (!ops?.length) return null;
+    const wc = buildWeightConfig(cfg);
+    const aMin = numA.min ?? 1, aMax = numA.max ?? 20;
+    const bMin = numB.min ?? 1, bMax = numB.max ?? 20;
+    for (let attempt = 0; attempt < 50; attempt++) {
+        const a = Math.floor(Math.random() * (aMax - aMin + 1)) + aMin;
+        const b = Math.floor(Math.random() * (bMax - bMin + 1)) + bMin;
+        const op = ops[Math.floor(Math.random() * ops.length)];
+        let res = 0, valid = true;
+        switch (op) {
+            case '+': res = a + b; break;
+            case '-': res = a - b; if (subNonNegative && res < 0) valid = false; break;
+            case '×': res = a * b; break;
+            case '÷': if (b === 0) { valid = false; break; } res = a / b; break;
         }
+        if (!valid || !isValidNum(res)) continue;
+        if (result.min !== undefined && res < result.min) continue;
+        if (result.max !== undefined && res > result.max) continue;
+        if (!checkCustomRule(a, b, customRule)) continue;
+        return {
+            expression: `${a}${op}${b}`, a, b, op, result: res,
+            weight: wc.init, wc: wc,
+            lastUseTime: null, answeredCount: 0, consecutiveRight: 0,
+            slowThreshold: null, projectId: projectId, isNew: true
+        };
+    }
+    return null;
+}
+
+// ========== 加载已做题 ==========
+function mergeSeenQuestions(project, importPool) {
+    const seen = project.seenQuestions || [];
+    const wc = buildWeightConfig(project.config);
+    importPool.forEach(q => {
+        const m = seen.find(s => s.expression === q.expression);
+        if (m) {
+            if (isValidNum(m.weight) && m.weight > 0) q.weight = m.weight;
+            if (isValidNum(m.lastUseTime)) q.lastUseTime = m.lastUseTime;
+            if (isValidNum(m.answeredCount)) q.answeredCount = m.answeredCount;
+            if (isValidNum(m.consecutiveRight)) q.consecutiveRight = m.consecutiveRight;
+        }
+        sanitizeWeight(q);
     });
+    const importExprs = new Set(importPool.map(q => q.expression));
+    const autoSeen = seen.filter(s => !importExprs.has(s.expression)).map(s => ({
+        ...s, wc: wc, projectId: project.id, slowThreshold: null
+    }));
+    autoSeen.forEach(sanitizeWeight);
+    return [...importPool, ...autoSeen];
 }
 
 function cacheSlowThresholds() {
     const p75Map = {};
-    projects.forEach(p => {
-        p75Map[p.id] = calculateP75(p.answerTimeHistory);
-    });
-    questionPool.forEach(q => {
-        q.slowThreshold = p75Map[q.projectId] ?? null;
-    });
+    projects.forEach(p => { p75Map[p.id] = calculateP75(p.answerTimeHistory); });
+    questionPool.forEach(q => { q.slowThreshold = p75Map[q.projectId] ?? null; });
 }
 
+// ========== 只保存做过的题 ==========
 function saveAllWeights() {
-    const weightMap = {};
+    const map = {};
     questionPool.forEach(q => {
         if (!q.projectId) return;
-        if (!weightMap[q.projectId]) weightMap[q.projectId] = [];
-        weightMap[q.projectId].push({
+        if ((q.answeredCount ?? 0) <= 0) return;
+        sanitizeWeight(q);
+        if (!map[q.projectId]) map[q.projectId] = [];
+        map[q.projectId].push({
             expression: q.expression, a: q.a, b: q.b, op: q.op,
             result: q.result, weight: q.weight,
             lastUseTime: q.lastUseTime, answeredCount: q.answeredCount,
             consecutiveRight: q.consecutiveRight
         });
     });
-    Object.keys(weightMap).forEach(projectId => {
-        const p = projects.find(item => item.id === projectId);
-        if (p) p.weights = weightMap[projectId];
+    Object.keys(map).forEach(pid => {
+        const p = projects.find(item => item.id === pid);
+        if (p) p.seenQuestions = map[pid];
     });
     saveProjects();
 }
 
-function recordAnswerTime(projectId, useTime) {
-    const p = projects.find(item => item.id === projectId);
+function recordAnswerTime(pid, useTime) {
+    if (!isValidNum(useTime) || useTime <= 0) return;
+    const p = projects.find(item => item.id === pid);
     if (!p) return;
     if (!p.answerTimeHistory) p.answerTimeHistory = [];
     p.answerTimeHistory.push(useTime);
-    if (p.answerTimeHistory.length > 100) {
-        p.answerTimeHistory.shift();
-    }
+    if (p.answerTimeHistory.length > 100) p.answerTimeHistory.shift();
 }
 
-/**
- * 带冷却的加权随机抽题
- * 最近 cooldown 道出过的题暂时不参与抽题
- * 如果过滤后题库为空（题库太小），则取消冷却
- */
+// ========== 加权抽题（含动态新题）==========
 function getWeightRandomQuestion() {
     const cooldown = currentConfig.weight?.cooldown ?? COOLDOWN_DEFAULT;
+    const canGenerate = currentProjectId !== null && currentConfig.ops?.length > 0;
 
-    // 构建候选池：排除最近出过的题
     let candidates = questionPool;
     if (cooldown > 0 && recentQueue.length > 0) {
         candidates = questionPool.filter(q => !recentQueue.includes(q.expression));
     }
-    // 题库太小，冷却后无候选，则取消冷却
-    if (candidates.length === 0) candidates = questionPool;
+    const validCandidates = candidates.filter(q => isValidNum(q.weight) && q.weight > 0);
 
-    const totalWeight = candidates.reduce((sum, item) => sum + item.weight, 0);
-    if (totalWeight <= 0) return candidates[0];
-    const randomVal = Math.random() * totalWeight;
-    let curSum = 0;
-    for (const q of candidates) {
-        curSum += q.weight;
-        if (randomVal <= curSum) return q;
+    let seenWeight = 0;
+    for (const q of validCandidates) seenWeight += q.weight;
+
+    const initW = currentConfig.weight?.init ?? 2;
+    const newWeight = canGenerate ? initW * NEW_QUESTION_BIAS : 0;
+    const totalWeight = seenWeight + newWeight;
+
+    if (totalWeight <= 0 || !isValidNum(totalWeight)) {
+        return canGenerate ? generateRandomQuestion(currentConfig, currentProjectId) : validCandidates[0];
     }
-    return candidates[0];
+
+    const r = Math.random() * totalWeight;
+    if (r < newWeight) {
+        const nq = generateRandomQuestion(currentConfig, currentProjectId);
+        if (nq) return nq;
+    }
+    let cur = newWeight;
+    for (const q of validCandidates) {
+        cur += q.weight;
+        if (r <= cur) return q;
+    }
+    return validCandidates[0] || (canGenerate ? generateRandomQuestion(currentConfig, currentProjectId) : null);
 }
 
-/**
- * 将题目加入冷却队列
- */
-function pushCooldown(question) {
-    const cooldown = currentConfig.weight?.cooldown ?? COOLDOWN_DEFAULT;
-    if (cooldown <= 0) return;
-    recentQueue.push(question.expression);
-    if (recentQueue.length > cooldown) {
-        recentQueue.shift();
-    }
+function pushCooldown(q) {
+    const cd = currentConfig.weight?.cooldown ?? COOLDOWN_DEFAULT;
+    if (cd <= 0) return;
+    recentQueue.push(q.expression);
+    if (recentQueue.length > cd) recentQueue.shift();
 }
 
 function addRecord(isRight, userAnswer, useTime) {
     const correct = currentQuestion.result;
-    const errorRate = correct === 0 ? 0 : Math.abs(userAnswer - correct) / correct * 100;
-    trainRecords.push({
-        index: totalCount, expression: currentQuestion.expression,
-        correct, user: userAnswer, isRight, errorRate, useTime
-    });
+    const err = (correct === 0 || !isValidNum(correct)) ? 0 : Math.abs(userAnswer - correct) / correct * 100;
+    trainRecords.push({ index: totalCount, expression: currentQuestion.expression, correct, user: userAnswer, isRight, errorRate: err, useTime });
 }
 
-// ========== 训练核心逻辑 ==========
+// ========== 训练核心 ==========
 function judgeAnswer() {
-    if (isAnswered) return;
+    if (isAnswered || !trainingActive) return;
     const val = dom.answerInput.value.trim();
     if (val === '') return false;
     const userNum = Number(val);
-    if (isNaN(userNum)) return false;
+    if (!isValidNum(userNum)) return false;
     const correct = currentQuestion.result;
-    const errorRate = correct === 0 ? 0 : Math.abs(userNum - correct) / correct * 100;
-    if (errorRate <= currentConfig.tolPercent) {
+    if (!isValidNum(correct)) { handleWrong(); return false; }
+    const err = correct === 0 ? 0 : Math.abs(userNum - correct) / correct * 100;
+    if (err <= currentConfig.tolPercent) {
         isAnswered = true;
         clearTimeout(timeoutTimer);
         const useTime = (Date.now() - questionStartTime) / 1000;
         totalUseTime += useTime;
-        totalCount++;
-        rightCount++;
+        totalCount++; rightCount++;
 
         currentQuestion.answeredCount++;
         currentQuestion.lastUseTime = useTime;
         currentQuestion.consecutiveRight++;
-
+        const wc = currentQuestion.wc;
         const isSlow = currentQuestion.slowThreshold !== null && useTime > currentQuestion.slowThreshold;
-        if (!isSlow) {
-            currentQuestion.weight = Math.max(
-                currentConfig.weight.min,
-                currentQuestion.weight * currentConfig.weight.decay
-            );
+        if (!isSlow) currentQuestion.weight = Math.max(wc.min, currentQuestion.weight * wc.decay);
+        sanitizeWeight(currentQuestion);
+
+        if (currentQuestion.isNew) {
+            currentQuestion.isNew = false;
+            questionPool.push(currentQuestion);
         }
 
         recordAnswerTime(currentQuestion.projectId, useTime);
         addRecord(true, userNum, useTime);
         updateStatus();
-        setTimeout(nextQuestion, 100);
+        if (trainingActive) setTimeout(nextQuestion, 100);
         return true;
     }
     return false;
 }
 
 function handleWrong() {
-    if (isAnswered) return;
+    if (isAnswered || !trainingActive) return;
     isAnswered = true;
     clearTimeout(timeoutTimer);
     const useTime = (Date.now() - questionStartTime) / 1000;
@@ -1140,22 +1216,24 @@ function handleWrong() {
     currentQuestion.answeredCount++;
     currentQuestion.lastUseTime = useTime;
     currentQuestion.consecutiveRight = 0;
-    currentQuestion.weight = Math.min(
-        currentConfig.weight.max,
-        currentQuestion.weight + currentConfig.weight.add
-    );
+    const wc = currentQuestion.wc;
+    currentQuestion.weight = Math.min(wc.max, currentQuestion.weight + wc.add);
+    sanitizeWeight(currentQuestion);
 
-    const userVal = dom.answerInput.value.trim();
-    const userAnswer = userVal === '' ? null : Number(userVal);
-    addRecord(false, userAnswer, useTime);
+    if (currentQuestion.isNew) {
+        currentQuestion.isNew = false;
+        questionPool.push(currentQuestion);
+    }
+
+    const uv = dom.answerInput.value.trim();
+    addRecord(false, uv === '' ? null : Number(uv), useTime);
     updateStatus();
-    dom.resultSummary.innerHTML = `<span class="wrong">❌ 答错</span><br>正确答案：${currentQuestion.result.toFixed(3)}`;
+    const ct = isValidNum(currentQuestion.result) ? currentQuestion.result.toFixed(3) : '异常';
+    dom.resultSummary.innerHTML = `<span class="wrong">❌ 答错</span><br>正确答案：${ct}`;
     dom.recordList.innerHTML = '';
     dom.resultBox.style.display = 'block';
     dom.answerInput.focus();
-    if (totalCount >= currentConfig.totalQuestions) {
-        setTimeout(finishTrain, 500);
-    }
+    if (totalCount >= currentConfig.totalQuestions && trainingActive) setTimeout(finishTrain, 500);
 }
 
 function startTrain(projectId) {
@@ -1163,15 +1241,10 @@ function startTrain(projectId) {
     const p = projects.find(item => item.id === projectId);
     if (!p) return;
     initTrainEnv(p.config);
-    const autoPool = buildAutoPool(currentConfig);
-    const importPool = parseImportQuestions(currentConfig.importText || '', currentConfig.weight.init);
-    questionPool = [...autoPool, ...importPool];
-    questionPool.forEach(q => q.projectId = projectId);
-    if (!questionPool.length) {
-        alert('当前配置下没有合法题目，请调整范围或规则');
-        return;
-    }
-    loadWeightsToPool(p);
+    const wc = buildWeightConfig(p.config);
+    const importPool = parseImportQuestions(p.config.importText || '', wc);
+    importPool.forEach(q => q.projectId = projectId);
+    questionPool = mergeSeenQuestions(p, importPool);
     cacheSlowThresholds();
     showQuizPage();
 }
@@ -1182,33 +1255,15 @@ function startMultiTrain() {
     selectedIds.forEach(id => {
         const p = projects.find(item => item.id === id);
         if (!p) return;
-        const autoPool = buildAutoPool(p.config);
-        const importPool = parseImportQuestions(p.config.importText || '', p.config.weight.init);
-        const pool = [...autoPool, ...importPool];
-        pool.forEach(q => q.projectId = id);
-        if (p.weights?.length) {
-            pool.forEach(q => {
-                const match = p.weights.find(item => {
-                    if (item.expression) return item.expression === q.expression;
-                    return item.a === q.a && item.b === q.b && item.op === q.op;
-                });
-                if (match) {
-                    q.weight = match.weight;
-                    if (match.result !== undefined) q.result = match.result;
-                    if (match.lastUseTime !== undefined) q.lastUseTime = match.lastUseTime;
-                    if (match.answeredCount !== undefined) q.answeredCount = match.answeredCount;
-                    if (match.consecutiveRight !== undefined) q.consecutiveRight = match.consecutiveRight;
-                }
-            });
-        }
+        const wc = buildWeightConfig(p.config);
+        const importPool = parseImportQuestions(p.config.importText || '', wc);
+        importPool.forEach(q => q.projectId = id);
+        const pool = mergeSeenQuestions(p, importPool);
         questionPool = questionPool.concat(pool);
     });
-    if (!questionPool.length) {
-        alert('选中项目中没有可用题目');
-        return;
-    }
-    const firstProject = projects.find(p => selectedIds.has(p.id));
-    initTrainEnv(firstProject.config);
+    if (!questionPool.length) { alert('选中项目中没有可用题目'); return; }
+    const first = projects.find(p => selectedIds.has(p.id));
+    initTrainEnv(first.config);
     currentProjectId = null;
     cacheSlowThresholds();
     showQuizPage();
@@ -1218,12 +1273,8 @@ function restartTrain() {
     if (!questionPool.length) return;
     saveAllWeights();
     cacheSlowThresholds();
-    totalCount = 0;
-    rightCount = 0;
-    trainRecords = [];
-    totalUseTime = 0;
-    isAnswered = false;
-    recentQueue = []; // 新一轮清空冷却队列
+    totalCount = 0; rightCount = 0; trainRecords = [];
+    totalUseTime = 0; isAnswered = false; recentQueue = []; trainingActive = true;
     dom.resultBox.style.display = 'none';
     dom.statusBar.textContent = '';
     nextQuestion();
@@ -1231,12 +1282,8 @@ function restartTrain() {
 
 function initTrainEnv(config) {
     currentConfig = config;
-    totalCount = 0;
-    rightCount = 0;
-    trainRecords = [];
-    totalUseTime = 0;
-    isAnswered = false;
-    recentQueue = [];
+    totalCount = 0; rightCount = 0; trainRecords = [];
+    totalUseTime = 0; isAnswered = false; recentQueue = []; trainingActive = true;
 }
 
 function showQuizPage() {
@@ -1244,39 +1291,41 @@ function showQuizPage() {
     dom.editPanel.style.display = 'none';
     dom.quizBody.style.display = 'block';
     dom.statusBar.textContent = '';
+    // 滚动到顶部
+    dom.quizBody.scrollTop = 0;
     nextQuestion();
 }
 
 function nextQuestion() {
-    if (totalCount >= currentConfig.totalQuestions) {
-        finishTrain();
-        return;
-    }
+    if (!trainingActive) return;
+    if (totalCount >= currentConfig.totalQuestions) { finishTrain(); return; }
     clearTimeout(timeoutTimer);
     isAnswered = false;
     dom.resultBox.style.display = 'none';
     dom.answerInput.value = '';
     currentQuestion = getWeightRandomQuestion();
-    pushCooldown(currentQuestion); // 加入冷却队列
+    if (!currentQuestion) { alert('题库异常，请返回重试'); exitTrain(); return; }
+    pushCooldown(currentQuestion);
     dom.question.textContent = `${currentQuestion.expression} = ?`;
     questionStartTime = Date.now();
-    setTimeout(() => dom.answerInput.focus(), 50);
+    setTimeout(() => { if (trainingActive) dom.answerInput.focus(); }, 50);
     const limitMs = currentConfig.timeLimit * 1000;
-    timeoutTimer = setTimeout(handleWrong, limitMs);
+    timeoutTimer = setTimeout(() => { if (trainingActive) handleWrong(); }, limitMs);
 }
 
 function finishTrain() {
+    if (!trainingActive) return;
     clearTimeout(timeoutTimer);
     isAnswered = true;
     saveAllWeights();
     const rate = totalCount > 0 ? (rightCount / totalCount * 100).toFixed(1) : 0;
-    const avgTime = totalCount > 0 ? (totalUseTime / totalCount).toFixed(1) : '0.0';
+    const avg = totalCount > 0 ? (totalUseTime / totalCount).toFixed(1) : '0.0';
     dom.resultSummary.innerHTML =
         `<span style="font-size:20px;font-weight:bold;">训练完成！</span><br>
         总题数：${totalCount}　答对：${rightCount}<br>
-        正确率：${rate}%　平均用时：${avgTime}秒`;
+        正确率：${rate}%　平均用时：${avg}秒`;
 
-    let listHtml = `
+    let lh = `
     <div class="record-header">
         <span class="record-index">序号</span>
         <span class="record-question">题目</span>
@@ -1286,30 +1335,24 @@ function finishTrain() {
         <span class="record-time">用时</span>
     </div>`;
     trainRecords.forEach(item => {
-        const userText = item.user === null ? '未答' : item.user;
-        const errorText = item.isRight ? '0.0%' : item.errorRate.toFixed(1) + '%';
-        const correctText = item.correct.toFixed(3);
-        const timeText = item.useTime.toFixed(1) + 's';
-        const statusClass = item.isRight ? 'right' : 'wrong';
-        listHtml += `
-        <div class="record-item ${statusClass}">
+        const ut = item.user === null ? '未答' : item.user;
+        const et = item.isRight ? '0.0%' : item.errorRate.toFixed(1) + '%';
+        const ct = isValidNum(item.correct) ? item.correct.toFixed(3) : '异常';
+        const tt = isValidNum(item.useTime) ? item.useTime.toFixed(1) + 's' : '-';
+        lh += `
+        <div class="record-item ${item.isRight ? 'right' : 'wrong'}">
             <span class="record-index">${item.index}</span>
             <span class="record-question">${item.expression}</span>
-            <span class="record-user">${userText}</span>
-            <span class="record-correct">${correctText}</span>
-            <span class="record-error">${errorText}</span>
-            <span class="record-time">${timeText}</span>
+            <span class="record-user">${ut}</span>
+            <span class="record-correct">${ct}</span>
+            <span class="record-error">${et}</span>
+            <span class="record-time">${tt}</span>
         </div>`;
     });
-    dom.recordList.innerHTML = listHtml;
-    const wrongCount = trainRecords.filter(i => !i.isRight).length;
-    if (wrongCount === 0) {
-        dom.exportBtn.textContent = '无错题';
-        dom.exportBtn.disabled = true;
-    } else {
-        dom.exportBtn.textContent = `导出错题(${wrongCount})`;
-        dom.exportBtn.disabled = false;
-    }
+    dom.recordList.innerHTML = lh;
+    const wc = trainRecords.filter(i => !i.isRight).length;
+    if (wc === 0) { dom.exportBtn.textContent = '无错题'; dom.exportBtn.disabled = true; }
+    else { dom.exportBtn.textContent = `导出错题(${wc})`; dom.exportBtn.disabled = false; }
     dom.resultBox.style.display = 'block';
 }
 
@@ -1319,6 +1362,7 @@ function updateStatus() {
 }
 
 function exitTrain() {
+    trainingActive = false;
     clearTimeout(timeoutTimer);
     if (questionPool.length) saveAllWeights();
     dom.quizBody.style.display = 'none';
@@ -1331,35 +1375,31 @@ function exportWrongQuestions() {
     if (!wrongList.length) return;
     let csv = '序号,题目,你的答案,正确答案,误差率(%),用时(秒)\n';
     wrongList.forEach(item => {
-        const userText = item.user === null ? '未作答' : item.user;
-        const errorText = item.errorRate.toFixed(1);
-        const correctText = item.correct.toFixed(3);
-        const timeText = item.useTime.toFixed(1);
-        csv += `${item.index},"=""${item.expression}""","${userText}",${correctText},${errorText},${timeText}\n`;
+        const ut = item.user === null ? '未作答' : item.user;
+        const ct = isValidNum(item.correct) ? item.correct.toFixed(3) : '异常';
+        const tt = isValidNum(item.useTime) ? item.useTime.toFixed(1) : '';
+        csv += `${item.index},"=""${item.expression}""","${ut}",${ct},${item.errorRate.toFixed(1)},${tt}\n`;
     });
     copyToClipboard(csv);
 }
 
-// ========== 全局事件绑定 ==========
+// ========== 事件绑定 ==========
 function bindEvents() {
-    dom.answerInput.addEventListener('input', () => {
-        if (!isAnswered) judgeAnswer();
-    });
+    dom.answerInput.addEventListener('input', () => { if (!isAnswered && trainingActive) judgeAnswer(); });
     dom.customRule.addEventListener('input', () => {
-        const val = dom.customRule.value.trim();
-        if (!val) { showRuleError(''); return; }
-        const check = validateCustomRule(val);
-        showRuleError(check.valid ? '' : check.message);
+        const v = dom.customRule.value.trim();
+        if (!v) { showRuleError(''); return; }
+        const c = validateCustomRule(v);
+        showRuleError(c.valid ? '' : c.message);
     });
-    document.addEventListener('keydown', (e) => {
+    document.addEventListener('keydown', e => {
         if (e.key !== 'Enter') return;
-        if (dom.quizBody.style.display === 'block' && !isAnswered) {
+        if (dom.quizBody.style.display === 'block' && !isAnswered && trainingActive) {
             e.preventDefault();
-            const ok = judgeAnswer();
-            if (!ok) handleWrong();
+            if (!judgeAnswer()) handleWrong();
             return;
         }
-        if (dom.resultBox.style.display === 'block' && totalCount < currentConfig.totalQuestions) {
+        if (dom.resultBox.style.display === 'block' && totalCount < currentConfig.totalQuestions && trainingActive) {
             e.preventDefault();
             nextQuestion();
         }
