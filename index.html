@@ -54,7 +54,7 @@ input[type="checkbox"]:checked::after{content:'';position:absolute;top:2px;left:
 .op-types label:has(input:checked){border-color:#2563eb;background:#f0f5ff}
 .setting-row{display:flex;align-items:center;margin-bottom:8px;gap:6px}
 .setting-row label{min-width:95px;font-size:14px;color:#444;flex-shrink:0}
-.setting-row input{flex:1;padding:7px 9px;font-size:15px;border:1px solid #e0e0e0;border-radius:6px;outline:none;min-width:0}
+.setting-row input,.setting-row select{flex:1;padding:7px 9px;font-size:15px;border:1px solid #e0e0e0;border-radius:6px;outline:none;min-width:0;background:#fff}
 .setting-row .range-split{color:#999;flex-shrink:0}
 .checkbox-row{display:flex;align-items:center;gap:6px;margin-bottom:8px;font-size:14px;color:#444}
 #importArea{width:100%;min-height:70px;padding:7px;border:1px solid #e0e0e0;border-radius:6px;font-size:13px;resize:vertical;margin-bottom:6px;outline:none}
@@ -67,6 +67,7 @@ input[type="checkbox"]:checked::after{content:'';position:absolute;top:2px;left:
 #question{font-size:44px;font-weight:bold;text-align:center;margin-bottom:4vh;letter-spacing:2px}
 #answerInput{width:100%;padding:14px;font-size:24px;text-align:center;border:2px solid #2563eb;border-radius:10px;outline:none;background:#fff}
 #submitBtn{display:none;width:100%;padding:12px;margin-top:10px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:16px;cursor:pointer}
+#nextBtn{display:none;width:100%;padding:12px;margin-top:10px;background:#f59e0b;color:#fff;border:none;border-radius:10px;font-size:16px;cursor:pointer}
 #resultBox{display:none;margin-top:14px;background:#fff;border-radius:10px;padding:14px;box-shadow:0 2px 8px rgba(0,0,0,.05)}
 #resultSummary{font-size:17px;line-height:1.6;text-align:center;margin-bottom:10px}
 #recordList{max-height:30vh;overflow-y:auto;border-top:1px solid #eee;padding-top:8px;font-size:14px}
@@ -129,10 +130,14 @@ input[type="checkbox"]:checked::after{content:'';position:absolute;top:2px;left:
     <div class="section-tip">格式：左表达式 比较符 右表达式。变量A、B，支持+-*/()和&lt;&gt;&lt;=&gt;==。</div>
     <div class="checkbox-row"><input type="checkbox" id="subNonNegative" checked><label for="subNonNegative">减法保证结果非负</label></div>
     <div class="section-title">权重参数设置</div>
-    <div class="section-tip">答错加权重，答对快答衰减，慢题答对不衰减。</div>
+    <div class="section-tip">答错升权；答对都衰减，又快又准衰减更多，答对但慢衰减少一点。</div>
     <div class="setting-row"><label>新题初始权重</label><input type="number" id="weightInit" value="2" min="0.5" step="0.5"></div>
     <div class="setting-row"><label>答错增量</label><input type="number" id="weightAdd" value="5" min="0" step="0.5"></div>
-    <div class="setting-row"><label>答对衰减率</label><input type="number" id="weightDecay" value="0.9" min="0.1" max="1" step="0.05"></div>
+    <div class="setting-row"><label>慢题判定方式</label><select id="slowMode" onchange="toggleSlowFixed()"><option value="P50">P50中位数</option><option value="P75">P75分位数</option><option value="fixed">固定秒数</option></select></div>
+    <div class="setting-row" id="slowFixedRow" style="display:none"><label>慢题阈值(秒)</label><input type="number" id="slowFixed" value="3" min="0.1" step="0.1"></div>
+    <div class="setting-row"><label>快题衰减率</label><input type="number" id="fastDecay" value="0.8" min="0.1" max="1" step="0.05"></div>
+    <div class="setting-row"><label>慢题衰减率</label><input type="number" id="slowDecay" value="0.95" min="0.1" max="1" step="0.05"></div>
+    <div class="section-tip">快题=又快又准，权重乘快题衰减率（降得多）；慢题=答对但慢，权重乘慢题衰减率（降得少）。</div>
     <div class="setting-row"><label>最小权重</label><input type="number" id="weightMin" value="1" min="0.5" step="0.5"></div>
     <div class="setting-row"><label>最大权重</label><input type="number" id="weightMax" value="20" min="1" step="1"></div>
     <div class="setting-row"><label>出题冷却数</label><input type="number" id="cooldownCount" value="3" min="0" max="10" step="1"></div>
@@ -141,6 +146,7 @@ input[type="checkbox"]:checked::after{content:'';position:absolute;top:2px;left:
     <div class="setting-row"><label>允许误差率(%)</label><input type="number" id="tolPercentInput" value="0" min="0" step="0.1"></div>
     <div class="setting-row"><label>单题时限(秒)</label><input type="number" id="timeInput" value="3" min="0.1" step="0.1"></div>
     <div class="setting-row"><label>总题量</label><input type="number" id="totalInput" value="10" min="1" step="1"></div>
+    <div class="checkbox-row"><input type="checkbox" id="pauseOnWrong" checked><label for="pauseOnWrong">答错后暂停显示正确答案</label></div>
     <div class="section-title">题目导入（可选）</div>
     <textarea id="importArea" placeholder="每行一道题，如：12+5、1+2+3"></textarea>
     <div class="import-tip">导入题目固定存在题库中，初始权重为1。自动生成题目动态生成。</div>
@@ -155,6 +161,7 @@ input[type="checkbox"]:checked::after{content:'';position:absolute;top:2px;left:
     <div id="resultBox">
         <div id="resultSummary"></div>
         <div id="recordList"></div>
+        <button id="nextBtn" onclick="nextQuestion()">下一题</button>
         <div class="finish-actions">
             <button id="exportBtn" class="btn-export" onclick="exportWrongQuestions()">导出错题</button>
             <button class="btn-restart" onclick="restartTrain()">再来一轮</button>
@@ -171,15 +178,15 @@ const POOL_SOFT_LIMIT=120;
 const STORAGE_LIMIT=5*1024*1024;
 
 const DEFAULT_PROJECTS=[
-    {id:'d1',name:'20以内退位减法',config:{ops:['-'],numA:{min:11,max:18},numB:{min:2,max:9},result:{},customRule:'',subNonNegative:true,weight:{init:2,add:5,decay:0.9,min:1,max:20,cooldown:3},tolPercent:0,timeLimit:3,totalQuestions:10,importText:''}},
-    {id:'d2',name:'100以内加法',config:{ops:['+'],numA:{min:10,max:89},numB:{min:1,max:9},result:{max:100},customRule:'',subNonNegative:true,weight:{init:2,add:5,decay:0.9,min:1,max:20,cooldown:3},tolPercent:0,timeLimit:5,totalQuestions:10,importText:''}},
-    {id:'d3',name:'乘法口诀表',config:{ops:['×'],numA:{min:2,max:9},numB:{min:2,max:9},result:{},customRule:'',subNonNegative:true,weight:{init:2,add:5,decay:0.9,min:1,max:20,cooldown:3},tolPercent:0,timeLimit:4,totalQuestions:10,importText:''}},
-    {id:'d4',name:'20以内加减混合',config:{ops:['+','-'],numA:{min:1,max:19},numB:{min:1,max:19},result:{min:0,max:20},customRule:'',subNonNegative:true,weight:{init:2,add:5,decay:0.9,min:1,max:20,cooldown:3},tolPercent:0,timeLimit:3,totalQuestions:10,importText:''}}
+    {id:'d1',name:'20以内退位减法',config:{ops:['-'],numA:{min:11,max:18},numB:{min:2,max:9},result:{},customRule:'',subNonNegative:true,weight:{init:2,add:5,fastDecay:0.8,slowDecay:0.95,min:1,max:20,cooldown:3,slowMode:'P50',slowFixed:3},tolPercent:0,timeLimit:3,totalQuestions:10,pauseOnWrong:true,importText:''}},
+    {id:'d2',name:'100以内加法',config:{ops:['+'],numA:{min:10,max:89},numB:{min:1,max:9},result:{max:100},customRule:'',subNonNegative:true,weight:{init:2,add:5,fastDecay:0.8,slowDecay:0.95,min:1,max:20,cooldown:3,slowMode:'P50',slowFixed:3},tolPercent:0,timeLimit:5,totalQuestions:10,pauseOnWrong:true,importText:''}},
+    {id:'d3',name:'乘法口诀表',config:{ops:['×'],numA:{min:2,max:9},numB:{min:2,max:9},result:{},customRule:'',subNonNegative:true,weight:{init:2,add:5,fastDecay:0.8,slowDecay:0.95,min:1,max:20,cooldown:3,slowMode:'P50',slowFixed:3},tolPercent:0,timeLimit:4,totalQuestions:10,pauseOnWrong:true,importText:''}},
+    {id:'d4',name:'20以内加减混合',config:{ops:['+','-'],numA:{min:1,max:19},numB:{min:1,max:19},result:{min:0,max:20},customRule:'',subNonNegative:true,weight:{init:2,add:5,fastDecay:0.8,slowDecay:0.95,min:1,max:20,cooldown:3,slowMode:'P50',slowFixed:3},tolPercent:0,timeLimit:3,totalQuestions:10,pauseOnWrong:true,importText:''}}
 ];
 
 const dom={};
 function initDomCache(){
-    ['listPanel','editPanel','quizBody','projectList','selectAll','startMultiBtn','exportAllBtn','editTitle','question','answerInput','submitBtn','resultBox','resultSummary','recordList','exportBtn','endGameBtn','statusBar','customRule','ruleErrorTip','storageInfo'].forEach(id=>dom[id]=document.getElementById(id));
+    ['listPanel','editPanel','quizBody','projectList','selectAll','startMultiBtn','exportAllBtn','editTitle','question','answerInput','submitBtn','nextBtn','resultBox','resultSummary','recordList','exportBtn','endGameBtn','statusBar','customRule','ruleErrorTip','storageInfo','slowFixedRow'].forEach(id=>dom[id]=document.getElementById(id));
 }
 
 let projects=[],currentProjectId=null,selectedIds=new Set();
@@ -191,54 +198,44 @@ let multiConfigs=[];
 
 const isValidNum=v=>typeof v==='number'&&isFinite(v)&&!isNaN(v);
 
-/* ========== 安全表达式求值器（替代 eval/new Function） ========== */
 function safeEvalExpr(expr,a,b){
     const s=expr.replace(/[Aa]/g,'('+a+')').replace(/[Bb]/g,'('+b+')');
     let pos=0,len=s.length;
     function skip(){while(pos<len&&s[pos]===' ')pos++}
-    function parseNum(){
-        skip();const st=pos;
-        while(pos<len&&(/[0-9]/.test(s[pos])||s[pos]==='.'))pos++;
-        return st===pos?NaN:parseFloat(s.substring(st,pos));
-    }
-    function parseFac(){
-        skip();if(pos>=len)return NaN;
-        if(s[pos]==='('){pos++;const v=parseExp();skip();if(pos<len&&s[pos]===')')pos++;return v}
-        if(s[pos]==='-'){pos++;return -parseFac()}
-        if(s[pos]==='+'){pos++;return parseFac()}
-        return parseNum();
-    }
-    function parseTerm(){
-        let v=parseFac();
-        while(true){skip();if(pos>=len||(s[pos]!=='*'&&s[pos]!=='/'))break;const op=s[pos++];const r=parseFac();v=op==='*'?v*r:(r!==0?v/r:NaN)}
-        return v;
-    }
-    function parseExp(){
-        let v=parseTerm();
-        while(true){skip();if(pos>=len||(s[pos]!=='+'&&s[pos]!=='-'))break;const op=s[pos++];const r=parseTerm();v=op==='+'?v+r:v-r}
-        return v;
-    }
+    function parseNum(){skip();const st=pos;while(pos<len&&(/[0-9]/.test(s[pos])||s[pos]==='.'))pos++;return st===pos?NaN:parseFloat(s.substring(st,pos))}
+    function parseFac(){skip();if(pos>=len)return NaN;if(s[pos]==='('){pos++;const v=parseExp();skip();if(pos<len&&s[pos]===')')pos++;return v}if(s[pos]==='-'){pos++;return -parseFac()}if(s[pos]==='+'){pos++;return parseFac()}return parseNum()}
+    function parseTerm(){let v=parseFac();while(true){skip();if(pos>=len||(s[pos]!=='*'&&s[pos]!=='/'))break;const op=s[pos++];const r=parseFac();v=op==='*'?v*r:(r!==0?v/r:NaN)}return v}
+    function parseExp(){let v=parseTerm();while(true){skip();if(pos>=len||(s[pos]!=='+'&&s[pos]!=='-'))break;const op=s[pos++];const r=parseTerm();v=op==='+'?v+r:v-r}return v}
     try{const r=parseExp();return isValidNum(r)?r:NaN}catch(e){return NaN}
 }
 
 function buildWeightConfig(cfg){
     const w=cfg.weight||{};
-    return{init:isValidNum(w.init)?w.init:2,add:isValidNum(w.add)?w.add:5,decay:isValidNum(w.decay)?w.decay:0.9,min:isValidNum(w.min)?w.min:1,max:isValidNum(w.max)?w.max:20};
+    return{
+        init:isValidNum(w.init)?w.init:2,
+        add:isValidNum(w.add)?w.add:5,
+        fastDecay:isValidNum(w.fastDecay)?w.fastDecay:(isValidNum(w.decay)?w.decay:0.8),
+        slowDecay:isValidNum(w.slowDecay)?w.slowDecay:0.95,
+        min:isValidNum(w.min)?w.min:1,
+        max:isValidNum(w.max)?w.max:20
+    };
 }
 
 function sanitizeWeight(q){
-    if(!q.wc)q.wc={init:2,add:5,decay:0.9,min:1,max:20};
+    if(!q.wc)q.wc={init:2,add:5,fastDecay:0.8,slowDecay:0.95,min:1,max:20};
     if(!isValidNum(q.weight)||q.weight<=0)q.weight=q.wc.init;
     if(q.weight<q.wc.min)q.weight=q.wc.min;
     if(q.weight>q.wc.max)q.weight=q.wc.max;
 }
 
-function calculateP75(times){
+function calculateSlowThreshold(times,mode,fixedValue){
+    if(mode==='fixed')return isValidNum(fixedValue)&&fixedValue>0?fixedValue:null;
     if(!times||!times.length)return null;
     const valid=times.filter(t=>isValidNum(t)&&t>0);
     if(!valid.length)return null;
     valid.sort((a,b)=>a-b);
-    return valid[Math.max(0,Math.ceil(valid.length*0.75)-1)];
+    const pct=mode==='P75'?0.75:0.5;
+    return valid[Math.max(0,Math.ceil(valid.length*pct)-1)];
 }
 
 function parseExpression(expr){
@@ -298,6 +295,10 @@ function compileRule(ruleStr){
 function showRuleError(msg){
     if(msg){dom.customRule.classList.add('error');dom.ruleErrorTip.textContent=msg;dom.ruleErrorTip.classList.add('show')}
     else{dom.customRule.classList.remove('error');dom.ruleErrorTip.classList.remove('show')}
+}
+
+function toggleSlowFixed(){
+    dom.slowFixedRow.style.display=document.getElementById('slowMode').value==='fixed'?'flex':'none';
 }
 
 function loadProjects(){
@@ -366,14 +367,24 @@ function openEdit(id){
         sv('numAMin',cfg.numA?.min);sv('numAMax',cfg.numA?.max);sv('numBMin',cfg.numB?.min);sv('numBMax',cfg.numB?.max);
         sv('resMin',cfg.result?.min);sv('resMax',cfg.result?.max);sv('customRule',cfg.customRule);
         sc('subNonNegative',cfg.subNonNegative??true);
-        sv('weightInit',cfg.weight?.init??2);sv('weightAdd',cfg.weight?.add??5);sv('weightDecay',cfg.weight?.decay??0.9);sv('weightMin',cfg.weight?.min??1);sv('weightMax',cfg.weight?.max??20);sv('cooldownCount',cfg.weight?.cooldown??COOLDOWN_DEFAULT);
-        sv('tolPercentInput',cfg.tolPercent??0);sv('timeInput',cfg.timeLimit??3);sv('totalInput',cfg.totalQuestions??10);sv('importArea',cfg.importText);
+        sv('weightInit',cfg.weight?.init??2);sv('weightAdd',cfg.weight?.add??5);
+        document.getElementById('slowMode').value=cfg.weight?.slowMode||'P50';
+        sv('slowFixed',cfg.weight?.slowFixed??3);
+        sv('fastDecay',cfg.weight?.fastDecay??(cfg.weight?.decay??0.8));
+        sv('slowDecay',cfg.weight?.slowDecay??0.95);
+        sv('weightMin',cfg.weight?.min??1);sv('weightMax',cfg.weight?.max??20);sv('cooldownCount',cfg.weight?.cooldown??COOLDOWN_DEFAULT);
+        sv('tolPercentInput',cfg.tolPercent??0);sv('timeInput',cfg.timeLimit??3);sv('totalInput',cfg.totalQuestions??10);
+        sc('pauseOnWrong',cfg.pauseOnWrong??true);
+        sv('importArea',cfg.importText);
     }else{
         sv('projectName','');sc('opAdd',false);sc('opSub',false);sc('opMul',false);sc('opDiv',false);
         sv('numAMin','');sv('numAMax','');sv('numBMin','');sv('numBMax','');sv('resMin','');sv('resMax','');sv('customRule','');sc('subNonNegative',true);
-        sv('weightInit',2);sv('weightAdd',5);sv('weightDecay',0.9);sv('weightMin',1);sv('weightMax',20);sv('cooldownCount',COOLDOWN_DEFAULT);
-        sv('tolPercentInput',0);sv('timeInput',3);sv('totalInput',10);sv('importArea','');
+        sv('weightInit',2);sv('weightAdd',5);document.getElementById('slowMode').value='P50';sv('slowFixed',3);
+        sv('fastDecay',0.8);sv('slowDecay',0.95);
+        sv('weightMin',1);sv('weightMax',20);sv('cooldownCount',COOLDOWN_DEFAULT);
+        sv('tolPercentInput',0);sv('timeInput',3);sv('totalInput',10);sc('pauseOnWrong',true);sv('importArea','');
     }
+    toggleSlowFixed();
     dom.listPanel.style.display='none';dom.editPanel.style.display='block';
 }
 
@@ -393,7 +404,30 @@ function saveProject(){
     if(!ops.length&&!importText.trim())return alert('请至少选择一种运算类型，或导入题目');
     const gn=id=>{const v=document.getElementById(id).value;return v?Number(v):undefined};
     const wi=gni('weightInit',2),wm=Math.max(0.5,gni('weightMin',1));
-    const config={ops,numA:{min:gn('numAMin'),max:gn('numAMax')},numB:{min:gn('numBMin'),max:gn('numBMax')},result:{min:gn('resMin'),max:gn('resMax')},customRule:ri,subNonNegative:document.getElementById('subNonNegative').checked,weight:{init:wi,add:Math.max(0,gni('weightAdd',5)),decay:Math.min(1,Math.max(0.1,gni('weightDecay',0.9))),min:wm,max:Math.max(wm+1,gni('weightMax',20)),cooldown:Math.max(0,Math.min(10,Math.floor(gni('cooldownCount',COOLDOWN_DEFAULT))))},tolPercent:Math.max(0,gni('tolPercentInput',0)),timeLimit:Math.max(0.1,gni('timeInput',3)),totalQuestions:Math.max(1,Math.floor(gni('totalInput',10))),importText};
+    const config={
+        ops,
+        numA:{min:gn('numAMin'),max:gn('numAMax')},
+        numB:{min:gn('numBMin'),max:gn('numBMax')},
+        result:{min:gn('resMin'),max:gn('resMax')},
+        customRule:ri,
+        subNonNegative:document.getElementById('subNonNegative').checked,
+        weight:{
+            init:wi,
+            add:Math.max(0,gni('weightAdd',5)),
+            fastDecay:Math.min(1,Math.max(0.1,gni('fastDecay',0.8))),
+            slowDecay:Math.min(1,Math.max(0.1,gni('slowDecay',0.95))),
+            min:wm,
+            max:Math.max(wm+1,gni('weightMax',20)),
+            cooldown:Math.max(0,Math.min(10,Math.floor(gni('cooldownCount',COOLDOWN_DEFAULT)))),
+            slowMode:document.getElementById('slowMode').value,
+            slowFixed:Math.max(0.1,gni('slowFixed',3))
+        },
+        tolPercent:Math.max(0,gni('tolPercentInput',0)),
+        timeLimit:Math.max(0.1,gni('timeInput',3)),
+        totalQuestions:Math.max(1,Math.floor(gni('totalInput',10))),
+        pauseOnWrong:document.getElementById('pauseOnWrong').checked,
+        importText
+    };
     if(currentProjectId){const i=projects.findIndex(p=>p.id===currentProjectId);if(i>-1){projects[i].name=name;projects[i].config=config}}
     else projects.push({id:'p_'+Date.now(),name,config,seen:[],times:[]});
     saveProjectsImmediate();
@@ -437,13 +471,11 @@ function parseImportQuestions(text,wc){
         const l=line.trim();if(!l)continue;
         const res=calcResultByExpr(l.replace(/×/g,'*').replace(/÷/g,'/'));
         if(res===null)continue;
-        // 导入题初始权重固定为1，不享受新题加成，避免批量导入冲击错题复习
         pool.push({expression:l.replace(/\*/g,'×').replace(/\//g,'÷'),a:null,b:null,op:null,result:res,weight:1,wc,lastUseTime:null,answeredCount:0,consecutiveRight:0,slowThreshold:null});
     }
     return pool;
 }
 
-/* ========== 题目生成（接受项目上下文，支持多项目） ========== */
 function generateRandomQuestionForProject(ctx){
     const{config,ruleFn,id}=ctx;
     const{ops,numA,numB,result,subNonNegative}=config;
@@ -489,7 +521,10 @@ function mergeSeenQuestions(project,importPool){
 
 function cacheSlowThresholds(){
     const map={};
-    for(const p of projects)map[p.id]=calculateP75(p.times);
+    for(const p of projects){
+        const w=p.config.weight||{};
+        map[p.id]=calculateSlowThreshold(p.times,w.slowMode||'P50',w.slowFixed);
+    }
     for(const q of questionPool)q.slowThreshold=map[q.projectId]??null;
 }
 
@@ -532,7 +567,6 @@ function compactPool(){
     }
 }
 
-/* ========== 两级抽样选题 ========== */
 function pickFromProject(ctx){
     const{id,config}=ctx;
     const cd=config.weight?.cooldown??COOLDOWN_DEFAULT;
@@ -553,7 +587,6 @@ function pickFromProject(ctx){
 }
 
 function getWeightRandomQuestion(){
-    // 多项目模式：先均匀随机选项目，再在项目内加权选题
     if(currentProjectId===null&&multiConfigs.length){
         const ctx=multiConfigs[Math.floor(Math.random()*multiConfigs.length)];
         return pickFromProject(ctx);
@@ -590,7 +623,13 @@ function judgeAnswer(){
         currentQuestion.answeredCount++;currentQuestion.lastUseTime=useTime;currentQuestion.consecutiveRight++;
         const wc=currentQuestion.wc;
         const isSlow=currentQuestion.slowThreshold!==null&&useTime>currentQuestion.slowThreshold;
-        if(!isSlow)currentQuestion.weight=Math.max(wc.min,currentQuestion.weight*wc.decay);
+        if(isSlow){
+            // 答对但慢：衰减少一点（还不够熟练，权重降得慢）
+            currentQuestion.weight=Math.max(wc.min,currentQuestion.weight*wc.slowDecay);
+        }else{
+            // 又快又准：衰减更多（掌握得好，权重降得快）
+            currentQuestion.weight=Math.max(wc.min,currentQuestion.weight*wc.fastDecay);
+        }
         sanitizeWeight(currentQuestion);
         if(currentQuestion.isNew){currentQuestion.isNew=false;questionPool.push(currentQuestion);compactPool()}
         recordAnswerTime(currentQuestion.projectId,useTime);
@@ -617,15 +656,28 @@ function handleWrong(){
     if(currentQuestion.isNew){currentQuestion.isNew=false;questionPool.push(currentQuestion);compactPool()}
     const uv=dom.answerInput.value.trim();
     addRecord(false,uv===''?null:Number(uv),useTime);updateStatus();
+    const isLast=totalCount>=currentConfig.totalQuestions;
+    if(!currentConfig.pauseOnWrong){
+        if(isLast){setTimeout(finishTrain,100)}else{setTimeout(nextQuestion,100)}
+        return;
+    }
+    dom.answerInput.blur();
     const ct=isValidNum(currentQuestion.result)?currentQuestion.result.toFixed(3):'异常';
     dom.resultSummary.innerHTML=`<span class="wrong">❌ 答错</span><br>正确答案：${ct}`;
-    dom.recordList.innerHTML='';dom.resultBox.style.display='block';dom.answerInput.focus();
-    if(totalCount>=currentConfig.totalQuestions&&trainingActive)setTimeout(finishTrain,400);
+    dom.recordList.innerHTML='';
+    dom.recordList.style.display='none';
+    document.querySelector('.finish-actions').style.display='none';
+    if(isLast){
+        dom.nextBtn.style.display='none';
+        setTimeout(finishTrain,400);
+    }else{
+        dom.nextBtn.style.display='block';
+        dom.resultBox.style.display='block';
+    }
 }
 
 function startTrain(projectId){
-    currentProjectId=projectId;
-    multiConfigs=[];
+    currentProjectId=projectId;multiConfigs=[];
     const p=projects.find(i=>i.id===projectId);if(!p)return;
     compiledRule=compileRule(p.config.customRule);
     initTrainEnv(p.config);
@@ -638,8 +690,7 @@ function startTrain(projectId){
 
 function startMultiTrain(){
     if(!selectedIds.size)return;
-    questionPool=[];
-    multiConfigs=[];
+    questionPool=[];multiConfigs=[];
     for(const id of selectedIds){
         const p=projects.find(i=>i.id===id);if(!p)continue;
         const wc=buildWeightConfig(p.config);
@@ -674,7 +725,12 @@ function showQuizPage(){
 function nextQuestion(){
     if(!trainingActive)return;
     if(totalCount>=currentConfig.totalQuestions){finishTrain();return}
-    clearTimeout(timeoutTimer);isAnswered=false;dom.resultBox.style.display='none';dom.answerInput.value='';dom.submitBtn.style.display='block';
+    clearTimeout(timeoutTimer);isAnswered=false;
+    dom.resultBox.style.display='none';
+    dom.nextBtn.style.display='none';
+    dom.recordList.style.display='';
+    document.querySelector('.finish-actions').style.display='flex';
+    dom.answerInput.value='';dom.submitBtn.style.display='block';
     currentQuestion=getWeightRandomQuestion();
     if(!currentQuestion){alert('题库异常，请返回重试');exitTrain();return}
     pushCooldown(currentQuestion);
@@ -686,12 +742,16 @@ function nextQuestion(){
 
 function finishTrain(){
     if(!trainingActive)return;
-    clearTimeout(timeoutTimer);isAnswered=true;dom.submitBtn.style.display='none';saveAllWeights();
+    clearTimeout(timeoutTimer);isAnswered=true;
+    dom.submitBtn.style.display='none';dom.nextBtn.style.display='none';
+    dom.answerInput.blur();
+    saveAllWeights();
     const rate=totalCount>0?(rightCount/totalCount*100).toFixed(1):0;
     const avg=totalCount>0?(totalUseTime/totalCount).toFixed(1):'0.0';
     dom.resultSummary.innerHTML=`<span style="font-size:20px;font-weight:bold;">训练完成！</span><br>总题数：${totalCount}　答对：${rightCount}<br>正确率：${rate}%　平均用时：${avg}秒`;
     let lh=`<div class="record-header"><span class="record-index">序号</span><span class="record-question">题目</span><span class="record-user">答案</span><span class="record-correct">正确</span><span class="record-error">误差</span><span class="record-time">用时</span></div>`;
-    for(const item of trainRecords){
+    for(let i=trainRecords.length-1;i>=0;i--){
+        const item=trainRecords[i];
         const ut=item.user===null?'未答':item.user;
         const et=item.isRight?'0.0%':item.errorRate.toFixed(1)+'%';
         const ct=isValidNum(item.correct)?item.correct.toFixed(3):'异常';
@@ -699,6 +759,8 @@ function finishTrain(){
         lh+=`<div class="record-item ${item.isRight?'right':'wrong'}"><span class="record-index">${item.index}</span><span class="record-question">${item.expression}</span><span class="record-user">${ut}</span><span class="record-correct">${ct}</span><span class="record-error">${et}</span><span class="record-time">${tt}</span></div>`;
     }
     dom.recordList.innerHTML=lh;
+    dom.recordList.style.display='';
+    document.querySelector('.finish-actions').style.display='flex';
     const wc=trainRecords.filter(i=>!i.isRight).length;
     if(wc===0){dom.exportBtn.textContent='无错题';dom.exportBtn.disabled=true}
     else{dom.exportBtn.textContent=`导出错题(${wc})`;dom.exportBtn.disabled=false}
@@ -711,7 +773,8 @@ function updateStatus(){
 }
 
 function exitTrain(){
-    trainingActive=false;clearTimeout(timeoutTimer);dom.submitBtn.style.display='none';
+    trainingActive=false;clearTimeout(timeoutTimer);dom.submitBtn.style.display='none';dom.nextBtn.style.display='none';
+    dom.answerInput.blur();
     if(questionPool.length)saveAllWeights();
     saveProjectsImmediate();
     multiConfigs=[];
@@ -737,6 +800,7 @@ function bindEvents(){
     document.addEventListener('keydown',e=>{
         if(e.key!=='Enter')return;
         if(dom.quizBody.style.display==='block'&&!isAnswered&&trainingActive){e.preventDefault();submitAnswer();return}
+        if(dom.nextBtn.style.display==='block'){e.preventDefault();nextQuestion();return}
         if(dom.resultBox.style.display==='block'&&totalCount<currentConfig.totalQuestions&&trainingActive){e.preventDefault();nextQuestion()}
     });
 }
