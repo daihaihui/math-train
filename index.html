@@ -14,8 +14,10 @@ input[type="checkbox"]:checked::after{content:'';position:absolute;top:2px;left:
 #customRule.error{border-color:#ef4444;background:#fef0f0}
 .rule-error-tip{color:#ef4444;font-size:12px;margin-top:-4px;margin-bottom:8px;display:none}
 .rule-error-tip.show{display:block}
-.storage-info{font-size:12px;color:#999;text-align:center;margin-bottom:8px}
-.storage-info.warn{color:#ef4444;font-weight:600}
+.storage-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;font-size:12px;color:#999}
+.storage-bar.warn .storage-info{color:#ef4444;font-weight:600}
+.data-btns{display:flex;gap:10px}
+.data-btns button{background:none;border:none;color:#2563eb;font-size:12px;cursor:pointer;padding:0}
 .panel{max-width:520px;margin:0 auto;background:#fff;border-radius:12px;padding:18px;box-shadow:0 2px 12px rgba(0,0,0,.06)}
 .panel-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
 .panel-title{font-size:20px;font-weight:600}
@@ -96,7 +98,14 @@ input[type="checkbox"]:checked::after{content:'';position:absolute;top:2px;left:
 <body>
 <div id="listPanel" class="panel">
     <div class="panel-header"><div class="panel-title">口算训练项目</div></div>
-    <div class="storage-info" id="storageInfo"></div>
+    <div class="storage-bar" id="storageBar">
+        <span class="storage-info" id="storageInfo"></span>
+        <div class="data-btns">
+            <button onclick="exportAllData()">导出备份</button>
+            <button onclick="document.getElementById('importFile').click()">导入备份</button>
+            <input type="file" id="importFile" accept=".json,application/json" style="display:none" onchange="importAllData(event)">
+        </div>
+    </div>
     <div class="list-toolbar">
         <label class="select-all"><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"><span>全选</span></label>
         <div class="toolbar-btns">
@@ -172,6 +181,7 @@ input[type="checkbox"]:checked::after{content:'';position:absolute;top:2px;left:
 </div>
 <script>
 const STORAGE_KEY='math_train_v2';
+const BACKUP_VERSION='1.0';
 const COOLDOWN_DEFAULT=3;
 const NEW_QUESTION_BIAS=10;
 const POOL_SOFT_LIMIT=120;
@@ -186,7 +196,7 @@ const DEFAULT_PROJECTS=[
 
 const dom={};
 function initDomCache(){
-    ['listPanel','editPanel','quizBody','projectList','selectAll','startMultiBtn','exportAllBtn','editTitle','question','answerInput','submitBtn','nextBtn','resultBox','resultSummary','recordList','exportBtn','endGameBtn','statusBar','customRule','ruleErrorTip','storageInfo','slowFixedRow'].forEach(id=>dom[id]=document.getElementById(id));
+    ['listPanel','editPanel','quizBody','projectList','selectAll','startMultiBtn','exportAllBtn','editTitle','question','answerInput','submitBtn','nextBtn','resultBox','resultSummary','recordList','exportBtn','endGameBtn','statusBar','customRule','ruleErrorTip','storageInfo','storageBar','slowFixedRow'].forEach(id=>dom[id]=document.getElementById(id));
 }
 
 let projects=[],currentProjectId=null,selectedIds=new Set();
@@ -197,6 +207,36 @@ let compiledRule=null;
 let multiConfigs=[];
 
 const isValidNum=v=>typeof v==='number'&&isFinite(v)&&!isNaN(v);
+const numOr=(v,fb)=>isValidNum(v)?v:fb;
+
+function migrateConfig(cfg){
+    if(!cfg||typeof cfg!=='object')return null;
+    if(!Array.isArray(cfg.ops))cfg.ops=[];
+    if(!cfg.numA)cfg.numA={};
+    if(!cfg.numB)cfg.numB={};
+    if(!cfg.result)cfg.result={};
+    if(cfg.subNonNegative===undefined)cfg.subNonNegative=true;
+    if(cfg.pauseOnWrong===undefined)cfg.pauseOnWrong=true;
+    if(cfg.customRule===undefined)cfg.customRule='';
+    if(cfg.importText===undefined)cfg.importText='';
+    if(!isValidNum(cfg.tolPercent))cfg.tolPercent=0;
+    if(!isValidNum(cfg.timeLimit))cfg.timeLimit=3;
+    if(!isValidNum(cfg.totalQuestions))cfg.totalQuestions=10;
+    const w=cfg.weight||{};
+    const legacyDecay=isValidNum(w.decay)?w.decay:0.8;
+    cfg.weight={
+        init:numOr(w.init,2),
+        add:numOr(w.add,5),
+        fastDecay:numOr(w.fastDecay,legacyDecay),
+        slowDecay:numOr(w.slowDecay,0.95),
+        min:numOr(w.min,1),
+        max:numOr(w.max,20),
+        cooldown:isValidNum(w.cooldown)?w.cooldown:COOLDOWN_DEFAULT,
+        slowMode:w.slowMode||'P50',
+        slowFixed:numOr(w.slowFixed,3)
+    };
+    return cfg;
+}
 
 function safeEvalExpr(expr,a,b){
     const s=expr.replace(/[Aa]/g,'('+a+')').replace(/[Bb]/g,'('+b+')');
@@ -212,12 +252,12 @@ function safeEvalExpr(expr,a,b){
 function buildWeightConfig(cfg){
     const w=cfg.weight||{};
     return{
-        init:isValidNum(w.init)?w.init:2,
-        add:isValidNum(w.add)?w.add:5,
-        fastDecay:isValidNum(w.fastDecay)?w.fastDecay:(isValidNum(w.decay)?w.decay:0.8),
-        slowDecay:isValidNum(w.slowDecay)?w.slowDecay:0.95,
-        min:isValidNum(w.min)?w.min:1,
-        max:isValidNum(w.max)?w.max:20
+        init:numOr(w.init,2),
+        add:numOr(w.add,5),
+        fastDecay:numOr(w.fastDecay,numOr(w.decay,0.8)),
+        slowDecay:numOr(w.slowDecay,0.95),
+        min:numOr(w.min,1),
+        max:numOr(w.max,20)
     };
 }
 
@@ -257,6 +297,95 @@ function csvEscape(str){return String(str).replace(/"/g,'""')}
 function copyToClipboard(text){
     const fb=()=>{const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);alert('已复制到剪贴板')};
     if(navigator.clipboard?.writeText)navigator.clipboard.writeText(text).then(()=>alert('已复制到剪贴板')).catch(fb);else fb();
+}
+
+/* ========== 数据备份导出/导入 ========== */
+function pad2(n){return String(n).padStart(2,'0')}
+function dateStr(){
+    const d=new Date();
+    return d.getFullYear()+pad2(d.getMonth()+1)+pad2(d.getDate());
+}
+
+function exportAllData(){
+    if(!projects.length)return alert('暂无数据可导出');
+    const data={
+        app:'math-train',
+        version:BACKUP_VERSION,
+        exportTime:new Date().toISOString(),
+        projects:projects
+    };
+    const json=JSON.stringify(data,null,2);
+    const filename='口算训练备份_'+dateStr()+'.json';
+    try{
+        const blob=new Blob([json],{type:'application/json;charset=utf-8'});
+        const url=URL.createObjectURL(blob);
+        const a=document.createElement('a');
+        a.href=url;a.download=filename;
+        document.body.appendChild(a);a.click();document.body.removeChild(a);
+        setTimeout(()=>URL.revokeObjectURL(url),1000);
+    }catch(e){
+        // 降级：复制到剪贴板
+        copyToClipboard(json);
+    }
+}
+
+function normalizeImportedProject(p){
+    if(!p||typeof p!=='object')return null;
+    if(!p.name||!p.config)return null;
+    const cfg=migrateConfig(p.config);
+    if(!cfg)return null;
+    if(!p.id)p.id='imp_'+Date.now()+'_'+Math.floor(Math.random()*10000);
+    if(!Array.isArray(p.seen))p.seen=[];
+    if(!Array.isArray(p.times))p.times=[];
+    p.seen=p.seen.filter(q=>q&&q.e&&isValidNum(q.w));
+    p.times=p.times.filter(t=>isValidNum(t)&&t>0);
+    p.config=cfg;
+    return p;
+}
+
+function importAllData(event){
+    const input=event.target;
+    const file=input.files&&input.files[0];
+    if(!file)return;
+    const reader=new FileReader();
+    reader.onload=function(e){
+        let imported=[];
+        try{
+            const data=JSON.parse(e.target.result);
+            if(Array.isArray(data))imported=data;
+            else if(data&&Array.isArray(data.projects))imported=data.projects;
+            else{alert('文件格式不正确，请选择本工具导出的备份文件');input.value='';return}
+        }catch(err){
+            alert('文件解析失败，请确认是JSON备份文件');input.value='';return;
+        }
+        imported=imported.map(normalizeImportedProject).filter(Boolean);
+        if(!imported.length){alert('文件中没有有效项目数据');input.value='';return}
+
+        // 第一次选择：确定=合并，取消=进入替换流程
+        const merge=confirm('备份中包含 '+imported.length+' 个项目。\n\n【确定】合并到当前数据（相同项目覆盖，其余保留）\n【取消】清空当前数据后整体替换');
+        if(merge){
+            const map=new Map();
+            for(const p of projects)map.set(p.id,p);
+            let updated=0,added=0;
+            for(const p of imported){
+                if(map.has(p.id))updated++;else added++;
+                map.set(p.id,p);
+            }
+            projects=Array.from(map.values());
+            selectedIds.clear();
+            saveProjectsImmediate();renderProjectList();
+            alert('导入完成：新增 '+added+' 个，更新 '+updated+' 个');
+        }else{
+            if(!confirm('确定清空当前全部 '+projects.length+' 个项目并替换为备份数据？此操作不可恢复！')){input.value='';return}
+            projects=imported;
+            selectedIds.clear();
+            saveProjectsImmediate();renderProjectList();
+            alert('已整体替换，共导入 '+imported.length+' 个项目');
+        }
+        input.value='';
+    };
+    reader.onerror=function(){alert('文件读取失败');input.value=''};
+    reader.readAsText(file);
 }
 
 function preprocessRule(s){return s.trim().replace(/\s+/g,'').replace(/[＜＜]/g,'<').replace(/[＞＞]/g,'>').replace(/[＝＝]/g,'=').replace(/[＋＋]/g,'+').replace(/[－－]/g,'-').replace(/×/g,'*').replace(/÷/g,'/')}
@@ -304,15 +433,17 @@ function toggleSlowFixed(){
 function loadProjects(){
     let stored=null;
     try{stored=JSON.parse(localStorage.getItem(STORAGE_KEY))}catch(e){stored=null}
-    if(stored&&Array.isArray(stored)&&stored.length){projects=stored}
+    if(Array.isArray(stored)){projects=stored}
     else{projects=JSON.parse(JSON.stringify(DEFAULT_PROJECTS));projects.forEach(p=>{p.seen=[];p.times=[]});saveProjectsImmediate()}
     projects.forEach(p=>{
+        p.config=migrateConfig(p.config)||{};
         if(!p.times)p.times=[];
         p.times=p.times.filter(t=>isValidNum(t)&&t>0);
         if(p.weights&&!p.seen){p.seen=p.weights.filter(q=>(q.answeredCount??0)>0).map(q=>({e:q.expression,w:q.weight,c:q.answeredCount,r:q.consecutiveRight}));delete p.weights}
         if(!p.seen)p.seen=[];
         p.seen=p.seen.filter(q=>q&&q.e&&isValidNum(q.w));
     });
+    saveProjectsImmediate();
     renderProjectList();
 }
 
@@ -325,15 +456,15 @@ function saveProjectsImmediate(){
     if(saveTimer){clearTimeout(saveTimer);saveTimer=null}
     try{localStorage.setItem(STORAGE_KEY,JSON.stringify(projects))}catch(e){alertStorageFull()}
 }
-function alertStorageFull(){alert('存储空间不足！训练数据可能无法保存。建议导出错题备份后，重置项目权重释放空间。')}
+function alertStorageFull(){alert('存储空间不足！训练数据可能无法保存，建议先用「导出备份」保存数据。')}
 
 function updateStorageInfo(){
     try{
         const bytes=JSON.stringify(projects).length;
         const kb=(bytes/1024).toFixed(1);
         const pct=(bytes/STORAGE_LIMIT*100).toFixed(1);
-        dom.storageInfo.textContent=`存储用量：${kb}KB / 5MB (${pct}%)`;
-        dom.storageInfo.className='storage-info'+(pct>80?' warn':'');
+        dom.storageInfo.textContent=`存储 ${kb}KB/5MB (${pct}%)`;
+        dom.storageBar.className='storage-bar'+(pct>80?' warn':'');
     }catch(e){dom.storageInfo.textContent=''}
 }
 
@@ -362,20 +493,20 @@ function openEdit(id){
     const sv=(e,v)=>document.getElementById(e).value=v??'';
     const sc=(e,v)=>document.getElementById(e).checked=v??false;
     if(cfg){
+        const c=migrateConfig(cfg);
         sv('projectName',projects.find(p=>p.id===id).name);
-        sc('opAdd',cfg.ops?.includes('+'));sc('opSub',cfg.ops?.includes('-'));sc('opMul',cfg.ops?.includes('×'));sc('opDiv',cfg.ops?.includes('÷'));
-        sv('numAMin',cfg.numA?.min);sv('numAMax',cfg.numA?.max);sv('numBMin',cfg.numB?.min);sv('numBMax',cfg.numB?.max);
-        sv('resMin',cfg.result?.min);sv('resMax',cfg.result?.max);sv('customRule',cfg.customRule);
-        sc('subNonNegative',cfg.subNonNegative??true);
-        sv('weightInit',cfg.weight?.init??2);sv('weightAdd',cfg.weight?.add??5);
-        document.getElementById('slowMode').value=cfg.weight?.slowMode||'P50';
-        sv('slowFixed',cfg.weight?.slowFixed??3);
-        sv('fastDecay',cfg.weight?.fastDecay??(cfg.weight?.decay??0.8));
-        sv('slowDecay',cfg.weight?.slowDecay??0.95);
-        sv('weightMin',cfg.weight?.min??1);sv('weightMax',cfg.weight?.max??20);sv('cooldownCount',cfg.weight?.cooldown??COOLDOWN_DEFAULT);
-        sv('tolPercentInput',cfg.tolPercent??0);sv('timeInput',cfg.timeLimit??3);sv('totalInput',cfg.totalQuestions??10);
-        sc('pauseOnWrong',cfg.pauseOnWrong??true);
-        sv('importArea',cfg.importText);
+        sc('opAdd',c.ops?.includes('+'));sc('opSub',c.ops?.includes('-'));sc('opMul',c.ops?.includes('×'));sc('opDiv',c.ops?.includes('÷'));
+        sv('numAMin',c.numA?.min);sv('numAMax',c.numA?.max);sv('numBMin',c.numB?.min);sv('numBMax',c.numB?.max);
+        sv('resMin',c.result?.min);sv('resMax',c.result?.max);sv('customRule',c.customRule);
+        sc('subNonNegative',c.subNonNegative);
+        sv('weightInit',c.weight.init);sv('weightAdd',c.weight.add);
+        document.getElementById('slowMode').value=c.weight.slowMode;
+        sv('slowFixed',c.weight.slowFixed);
+        sv('fastDecay',c.weight.fastDecay);sv('slowDecay',c.weight.slowDecay);
+        sv('weightMin',c.weight.min);sv('weightMax',c.weight.max);sv('cooldownCount',c.weight.cooldown);
+        sv('tolPercentInput',c.tolPercent);sv('timeInput',c.timeLimit);sv('totalInput',c.totalQuestions);
+        sc('pauseOnWrong',c.pauseOnWrong);
+        sv('importArea',c.importText);
     }else{
         sv('projectName','');sc('opAdd',false);sc('opSub',false);sc('opMul',false);sc('opDiv',false);
         sv('numAMin','');sv('numAMax','');sv('numBMin','');sv('numBMax','');sv('resMin','');sv('resMax','');sv('customRule','');sc('subNonNegative',true);
@@ -402,7 +533,7 @@ function saveProject(){
     if(document.getElementById('opDiv').checked)ops.push('÷');
     const importText=document.getElementById('importArea').value;
     if(!ops.length&&!importText.trim())return alert('请至少选择一种运算类型，或导入题目');
-    const gn=id=>{const v=document.getElementById(id).value;return v?Number(v):undefined};
+    const gn=id=>{const v=document.getElementById(id).value;return v!==''?Number(v):undefined};
     const wi=gni('weightInit',2),wm=Math.max(0.5,gni('weightMin',1));
     const config={
         ops,
@@ -428,7 +559,14 @@ function saveProject(){
         pauseOnWrong:document.getElementById('pauseOnWrong').checked,
         importText
     };
-    if(currentProjectId){const i=projects.findIndex(p=>p.id===currentProjectId);if(i>-1){projects[i].name=name;projects[i].config=config}}
+    if(currentProjectId){
+        const i=projects.findIndex(p=>p.id===currentProjectId);
+        if(i>-1){
+            const seen=projects[i].seen,times=projects[i].times;
+            projects[i].name=name;projects[i].config=config;
+            projects[i].seen=seen;projects[i].times=times;
+        }
+    }
     else projects.push({id:'p_'+Date.now(),name,config,seen:[],times:[]});
     saveProjectsImmediate();
     alert('保存成功');backToList();
@@ -523,7 +661,7 @@ function cacheSlowThresholds(){
     const map={};
     for(const p of projects){
         const w=p.config.weight||{};
-        map[p.id]=calculateSlowThreshold(p.times,w.slowMode||'P50',w.slowFixed);
+        map[p.id]=calculateSlowThreshold(p.times,w.slowMode,w.slowFixed);
     }
     for(const q of questionPool)q.slowThreshold=map[q.projectId]??null;
 }
@@ -623,13 +761,8 @@ function judgeAnswer(){
         currentQuestion.answeredCount++;currentQuestion.lastUseTime=useTime;currentQuestion.consecutiveRight++;
         const wc=currentQuestion.wc;
         const isSlow=currentQuestion.slowThreshold!==null&&useTime>currentQuestion.slowThreshold;
-        if(isSlow){
-            // 答对但慢：衰减少一点（还不够熟练，权重降得慢）
-            currentQuestion.weight=Math.max(wc.min,currentQuestion.weight*wc.slowDecay);
-        }else{
-            // 又快又准：衰减更多（掌握得好，权重降得快）
-            currentQuestion.weight=Math.max(wc.min,currentQuestion.weight*wc.fastDecay);
-        }
+        if(isSlow)currentQuestion.weight=Math.max(wc.min,currentQuestion.weight*wc.slowDecay);
+        else currentQuestion.weight=Math.max(wc.min,currentQuestion.weight*wc.fastDecay);
         sanitizeWeight(currentQuestion);
         if(currentQuestion.isNew){currentQuestion.isNew=false;questionPool.push(currentQuestion);compactPool()}
         recordAnswerTime(currentQuestion.projectId,useTime);
@@ -640,9 +773,7 @@ function judgeAnswer(){
     return false;
 }
 
-function submitAnswer(){
-    if(!isAnswered&&trainingActive){if(!judgeAnswer())handleWrong()}
-}
+function submitAnswer(){if(!isAnswered&&trainingActive){if(!judgeAnswer())handleWrong()}}
 
 function handleWrong(){
     if(isAnswered||!trainingActive)return;
@@ -664,16 +795,10 @@ function handleWrong(){
     dom.answerInput.blur();
     const ct=isValidNum(currentQuestion.result)?currentQuestion.result.toFixed(3):'异常';
     dom.resultSummary.innerHTML=`<span class="wrong">❌ 答错</span><br>正确答案：${ct}`;
-    dom.recordList.innerHTML='';
-    dom.recordList.style.display='none';
+    dom.recordList.innerHTML='';dom.recordList.style.display='none';
     document.querySelector('.finish-actions').style.display='none';
-    if(isLast){
-        dom.nextBtn.style.display='none';
-        setTimeout(finishTrain,400);
-    }else{
-        dom.nextBtn.style.display='block';
-        dom.resultBox.style.display='block';
-    }
+    if(isLast){dom.nextBtn.style.display='none';setTimeout(finishTrain,400)}
+    else{dom.nextBtn.style.display='block';dom.resultBox.style.display='block'}
 }
 
 function startTrain(projectId){
@@ -726,10 +851,8 @@ function nextQuestion(){
     if(!trainingActive)return;
     if(totalCount>=currentConfig.totalQuestions){finishTrain();return}
     clearTimeout(timeoutTimer);isAnswered=false;
-    dom.resultBox.style.display='none';
-    dom.nextBtn.style.display='none';
-    dom.recordList.style.display='';
-    document.querySelector('.finish-actions').style.display='flex';
+    dom.resultBox.style.display='none';dom.nextBtn.style.display='none';
+    dom.recordList.style.display='';document.querySelector('.finish-actions').style.display='flex';
     dom.answerInput.value='';dom.submitBtn.style.display='block';
     currentQuestion=getWeightRandomQuestion();
     if(!currentQuestion){alert('题库异常，请返回重试');exitTrain();return}
@@ -758,8 +881,7 @@ function finishTrain(){
         const tt=isValidNum(item.useTime)?item.useTime.toFixed(1)+'s':'-';
         lh+=`<div class="record-item ${item.isRight?'right':'wrong'}"><span class="record-index">${item.index}</span><span class="record-question">${item.expression}</span><span class="record-user">${ut}</span><span class="record-correct">${ct}</span><span class="record-error">${et}</span><span class="record-time">${tt}</span></div>`;
     }
-    dom.recordList.innerHTML=lh;
-    dom.recordList.style.display='';
+    dom.recordList.innerHTML=lh;dom.recordList.style.display='';
     document.querySelector('.finish-actions').style.display='flex';
     const wc=trainRecords.filter(i=>!i.isRight).length;
     if(wc===0){dom.exportBtn.textContent='无错题';dom.exportBtn.disabled=true}
