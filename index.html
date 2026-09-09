@@ -159,8 +159,8 @@ input[type="checkbox"]:checked::after{content:'';position:absolute;top:2px;left:
     <div class="setting-row"><label>总题量</label><input type="number" id="totalInput" value="10" min="1" step="1"></div>
     <div class="checkbox-row"><input type="checkbox" id="pauseOnWrong" checked><label for="pauseOnWrong">答错后暂停显示正确答案</label></div>
     <div class="section-title">题目导入（可选）</div>
-    <textarea id="importArea" placeholder="每行一道题，如：12+5、1+2+3"></textarea>
-    <div class="import-tip">导入题目固定存在题库中，初始权重为1。自动生成题目动态生成。</div>
+    <textarea id="importArea" placeholder="每行一道题，如：12+5、1+2+3；也可用逗号分隔：1+2, 3+4, 5×6"></textarea>
+    <div class="import-tip">支持换行或逗号/分号/顿号分隔；乘号可用 ×、x 或 *，除号可用 ÷ 或 /。无法识别的内容保存时会提示。</div>
     <button class="btn-primary" onclick="saveProject()">保存项目</button>
     <button class="btn-secondary" onclick="resetProjectWeights()">重置该项目错题权重</button>
 </div>
@@ -182,7 +182,7 @@ input[type="checkbox"]:checked::after{content:'';position:absolute;top:2px;left:
     <div id="statusBar"></div>
 </div>
 <script>
-const STORAGE_KEY='math_train_v8';
+const STORAGE_KEY='math_train_v9';
 const BACKUP_VERSION='1.0';
 const COOLDOWN_DEFAULT=3;
 const NEW_QUESTION_BIAS=10;
@@ -241,31 +241,63 @@ function formatAnswer(value,config){
 
 function migrateConfig(cfg){
     if(!cfg||typeof cfg!=='object')return null;
+    // ops：过滤非法运算符，只保留 + - × ÷
     if(!Array.isArray(cfg.ops))cfg.ops=[];
-    if(!cfg.numA)cfg.numA={};
-    if(!cfg.numB)cfg.numB={};
-    if(!cfg.result)cfg.result={};
-    if(cfg.subNonNegative===undefined)cfg.subNonNegative=true;
-    if(cfg.pauseOnWrong===undefined)cfg.pauseOnWrong=true;
-    if(cfg.customRule===undefined)cfg.customRule='';
-    if(cfg.importText===undefined)cfg.importText='';
-    if(!isValidNum(cfg.tolPercent))cfg.tolPercent=0;
-    if(!isValidNum(cfg.decimalPlaces))cfg.decimalPlaces=0;
+    cfg.ops=cfg.ops.filter(op=>op==='+'||op==='-'||op==='×'||op==='÷');
+    // numA/numB/result：确保 min/max 是合法数字，且 min<=max
+    const sanitizeRange=(r)=>{
+        if(!r||typeof r!=='object')r={};
+        let mn=isValidNum(r.min)?r.min:undefined;
+        let mx=isValidNum(r.max)?r.max:undefined;
+        if(mn!==undefined&&mx!==undefined&&mn>mx){const t=mn;mn=mx;mx=t}
+        return{min:mn,max:mx};
+    };
+    cfg.numA=sanitizeRange(cfg.numA);
+    cfg.numB=sanitizeRange(cfg.numB);
+    cfg.result=sanitizeRange(cfg.result);
+    if(typeof cfg.subNonNegative!=='boolean')cfg.subNonNegative=true;
+    if(typeof cfg.pauseOnWrong!=='boolean')cfg.pauseOnWrong=true;
+    if(typeof cfg.customRule!=='string')cfg.customRule='';
+    if(typeof cfg.importText!=='string')cfg.importText='';
+    if(!isValidNum(cfg.tolPercent)||cfg.tolPercent<0)cfg.tolPercent=0;
+    if(!isValidNum(cfg.decimalPlaces)||cfg.decimalPlaces<0)cfg.decimalPlaces=0;
+    if(cfg.decimalPlaces>6)cfg.decimalPlaces=6;
+    cfg.decimalPlaces=Math.floor(cfg.decimalPlaces);
     if(cfg.answerFormat!=='number'&&cfg.answerFormat!=='percent')cfg.answerFormat='number';
-    if(!isValidNum(cfg.timeLimit))cfg.timeLimit=3;
-    if(!isValidNum(cfg.totalQuestions))cfg.totalQuestions=10;
-    const w=cfg.weight||{};
+    if(!isValidNum(cfg.timeLimit)||cfg.timeLimit<=0)cfg.timeLimit=3;
+    if(!isValidNum(cfg.totalQuestions)||cfg.totalQuestions<=0)cfg.totalQuestions=10;
+    cfg.totalQuestions=Math.floor(cfg.totalQuestions);
+    const w=cfg.weight&&typeof cfg.weight==='object'?cfg.weight:{};
     const legacyDecay=isValidNum(w.decay)?w.decay:0.8;
+    // 权重参数做范围限制：min<=init<=max，衰减率在 (0,1]，cooldown>=0
+    let wMin=isValidNum(w.min)&&w.min>0?w.min:1;
+    let wMax=isValidNum(w.max)&&w.max>0?w.max:20;
+    if(wMax<wMin)wMax=wMin+1;
+    let wInit=isValidNum(w.init)&&w.init>0?w.init:2;
+    if(wInit<wMin)wInit=wMin;
+    if(wInit>wMax)wInit=wMax;
+    let fastD=isValidNum(w.fastDecay)?w.fastDecay:legacyDecay;
+    let slowD=isValidNum(w.slowDecay)?w.slowDecay:0.95;
+    fastD=Math.min(1,Math.max(0.1,fastD));
+    slowD=Math.min(1,Math.max(0.1,slowD));
+    let cd=isValidNum(w.cooldown)?w.cooldown:COOLDOWN_DEFAULT;
+    if(cd<0)cd=0;
+    if(cd>10)cd=10;
+    cd=Math.floor(cd);
+    let slowMode=typeof w.slowMode==='string'?w.slowMode:'P50';
+    if(slowMode!=='P50'&&slowMode!=='P75'&&slowMode!=='fixed')slowMode='P50';
+    let slowFixed=isValidNum(w.slowFixed)&&w.slowFixed>0?w.slowFixed:3;
+    let wAdd=isValidNum(w.add)&&w.add>=0?w.add:5;
     cfg.weight={
-        init:numOr(w.init,2),
-        add:numOr(w.add,5),
-        fastDecay:numOr(w.fastDecay,legacyDecay),
-        slowDecay:numOr(w.slowDecay,0.95),
-        min:numOr(w.min,1),
-        max:numOr(w.max,20),
-        cooldown:isValidNum(w.cooldown)?w.cooldown:COOLDOWN_DEFAULT,
-        slowMode:w.slowMode||'P50',
-        slowFixed:numOr(w.slowFixed,3)
+        init:wInit,
+        add:wAdd,
+        fastDecay:fastD,
+        slowDecay:slowD,
+        min:wMin,
+        max:wMax,
+        cooldown:cd,
+        slowMode:slowMode,
+        slowFixed:slowFixed
     };
     return cfg;
 }
@@ -363,15 +395,42 @@ function exportAllData(){
 
 function normalizeImportedProject(p){
     if(!p||typeof p!=='object')return null;
-    if(!p.name||!p.config)return null;
+    // name：必须存在且可转为非空字符串
+    if(p.name===null||p.name===undefined)return null;
+    const nameStr=String(p.name).trim();
+    if(!nameStr)return null;
+    p.name=nameStr;
+    if(!p.config||typeof p.config!=='object')return null;
     const cfg=migrateConfig(p.config);
     if(!cfg)return null;
-    if(!p.id)p.id='imp_'+Date.now()+'_'+Math.floor(Math.random()*10000);
+    if(!p.id||typeof p.id!=='string')p.id='imp_'+Date.now()+'_'+Math.floor(Math.random()*10000);
     if(!Array.isArray(p.seen))p.seen=[];
     if(!Array.isArray(p.times))p.times=[];
-    p.seen=p.seen.filter(q=>q&&q.e&&isValidNum(q.w));
-    p.times=p.times.filter(t=>isValidNum(t)&&t>0);
+    // 兼容旧版本：weights -> seen
+    if(p.weights&&!p.seen.length){
+        p.seen=p.weights.filter(q=>q&&q.expression&&isValidNum(q.weight)&&(q.answeredCount??0)>0)
+            .map(q=>({e:q.expression,w:q.weight,c:q.answeredCount,r:q.consecutiveRight}));
+        delete p.weights;
+    }
+    // seen：e 必须是字符串且能被 parseExpression 解析；w 必须是合法正数；c/r 默认 0
+    p.seen=p.seen.filter(q=>{
+        if(!q||typeof q.e!=='string'||!q.e.trim())return false;
+        if(!isValidNum(q.w)||q.w<=0)return false;
+        // 重新解析表达式，剔除 eval 无法处理或结果非有限数的条目
+        const info=parseExpression(q.e);
+        if(!info||!isValidNum(info.result))return false;
+        return true;
+    }).map(q=>({
+        e:String(q.e),
+        w:Number(q.w),
+        c:isValidNum(q.c)&&q.c>=0?Math.floor(q.c):0,
+        r:isValidNum(q.r)&&q.r>=0?Math.floor(q.r):0
+    }));
+    p.times=p.times.filter(t=>isValidNum(t)&&t>0).map(Number);
     p.config=cfg;
+    // 兜底：seen/times 至少是空数组
+    if(!Array.isArray(p.seen))p.seen=[];
+    if(!Array.isArray(p.times))p.times=[];
     return p;
 }
 
@@ -465,16 +524,17 @@ function toggleSlowFixed(){
 function loadProjects(){
     let stored=null;
     try{stored=JSON.parse(localStorage.getItem(STORAGE_KEY))}catch(e){stored=null}
-    if(Array.isArray(stored)){projects=stored}
-    else{projects=JSON.parse(JSON.stringify(DEFAULT_PROJECTS));projects.forEach(p=>{p.seen=[];p.times=[]});saveProjectsImmediate()}
-    projects.forEach(p=>{
-        p.config=migrateConfig(p.config)||{};
-        if(!p.times)p.times=[];
-        p.times=p.times.filter(t=>isValidNum(t)&&t>0);
-        if(p.weights&&!p.seen){p.seen=p.weights.filter(q=>(q.answeredCount??0)>0).map(q=>({e:q.expression,w:q.weight,c:q.answeredCount,r:q.consecutiveRight}));delete p.weights}
-        if(!p.seen)p.seen=[];
-        p.seen=p.seen.filter(q=>q&&q.e&&isValidNum(q.w));
-    });
+    if(Array.isArray(stored)){
+        // 统一走 normalizeImportedProject 做完整校验，丢弃非法项目
+        const before=stored.length;
+        projects=stored.map(normalizeImportedProject).filter(Boolean);
+        // 兼容旧版本 weights -> seen 的迁移（normalizeImportedProject 已保证 seen 存在）
+        if(projects.length!==before)saveProjectsImmediate();
+    }else{
+        projects=JSON.parse(JSON.stringify(DEFAULT_PROJECTS));
+        projects.forEach(p=>{p.seen=[];p.times=[]});
+        saveProjectsImmediate();
+    }
     saveProjectsImmediate();
     renderProjectList();
 }
@@ -593,6 +653,29 @@ function saveProject(){
         pauseOnWrong:document.getElementById('pauseOnWrong').checked,
         importText
     };
+    // 导入题目校验：无效行必须明确告知用户，不能静默丢弃
+    const importCheck=checkImportText(importText,buildWeightConfig(config),config);
+    if(importText.trim()){
+        if(importCheck.invalid.length){
+            const showList=importCheck.invalid.slice(0,10).map(s=>'· '+s).join('\n');
+            const more=importCheck.invalid.length>10?'\n…等共 '+importCheck.invalid.length+' 条':'';
+            const msg='以下 '+importCheck.invalid.length+' 条内容无法识别为算式：\n\n'+showList+more+
+                '\n\n支持：+ - × ÷（乘号也可用 x 或 *，除号可用 /），可用换行/逗号/分号/顿号分隔。';
+            // 纯导入项目且没有任何有效题：阻断保存；有有效题：让用户决定
+            if(!ops.length&&!importCheck.pool.length){
+                alert(msg+'\n\n该项目没有可训练的题目，请修改后再保存。');
+                document.getElementById('importArea').focus();
+                return;
+            }
+            if(!confirm(msg+'\n\n【确定】跳过这些内容，保存 '+importCheck.pool.length+' 道有效题目\n【取消】返回修改'))return;
+        }
+    }else if(!ops.length){
+        return alert('请至少选择一种运算类型，或导入题目');
+    }
+    // 纯导入项目无有效题目（理论上前面已拦截，兜底）
+    if(!ops.length&&!importCheck.pool.length){
+        return alert('导入的题目未能识别出任何有效题目，请检查格式。');
+    }
     if(currentProjectId){
         const i=projects.findIndex(p=>p.id===currentProjectId);
         if(i>-1){
@@ -638,16 +721,40 @@ function exportSelectedProjects(){
     copyToClipboard(csv);
 }
 
-function parseImportQuestions(text,wc,config){
-    if(!text.trim())return[];
-    const lines=text.trim().split('\n'),pool=[];
-    for(const line of lines){
-        const l=line.trim();if(!l)continue;
-        const res=calcResultByExpr(l.replace(/×/g,'*').replace(/÷/g,'/'));
-        if(res===null)continue;
-        pool.push({expression:l.replace(/\*/g,'×').replace(/\//g,'÷'),a:null,b:null,op:null,result:res,weight:1,wc,cfg:config,lastUseTime:null,answeredCount:0,consecutiveRight:0,slowThreshold:null});
+// 将用户输入的算式归一化：x/X/×/＊ 统一为乘号 *，÷/／ 统一为除号 /，全角数字/运算符转半角
+function normalizeMathExpr(s){
+    return String(s)
+        .replace(/[×xX＊\*]/g,'*')
+        .replace(/[÷／\/]/g,'/')
+        .replace(/[＋]/g,'+').replace(/[－﹣]/g,'-')
+        .replace(/[．]/g,'.')
+        .replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0));
+}
+
+// 解析导入题目，返回 {pool: 有效题目, invalid: 无法识别的原始行}
+// 支持分隔符：换行、英文逗号、中文逗号、中英文分号、顿号（不按空格拆分，保留 1 + 2 写法）
+function checkImportText(text,wc,config){
+    const pool=[],invalid=[];
+    if(!text||typeof text!=='string'||!text.trim())return{pool,invalid};
+    const seenExpr=new Set();
+    const segments=text.split(/[\r\n,，;；、]+/);
+    for(const seg of segments){
+        const raw=seg.trim();
+        if(!raw)continue;
+        const normalized=normalizeMathExpr(raw);
+        const res=calcResultByExpr(normalized);
+        if(res===null||!isValidNum(res)){invalid.push(raw);continue;}
+        // 显示用 expression：* / 转回 × ÷，统一存储格式
+        const expr=normalized.replace(/\*/g,'×').replace(/\//g,'÷');
+        if(seenExpr.has(expr))continue;
+        seenExpr.add(expr);
+        pool.push({expression:expr,a:null,b:null,op:null,result:res,weight:wc.init,wc,cfg:config,lastUseTime:null,answeredCount:0,consecutiveRight:0,slowThreshold:null});
     }
-    return pool;
+    return{pool,invalid};
+}
+
+function parseImportQuestions(text,wc,config){
+    return checkImportText(text,wc,config).pool;
 }
 
 function generateRandomQuestionForProject(ctx){
@@ -656,17 +763,22 @@ function generateRandomQuestionForProject(ctx){
     if(!ops?.length)return null;
     const wc=buildWeightConfig(config);
     const aMin=numA.min??1,aMax=numA.max??20,bMin=numB.min??1,bMax=numB.max??20;
+    // 新题生成也需尊重 cooldown：跳过最近出过的表达式
+    const cd=config.weight?.cooldown??COOLDOWN_DEFAULT;
+    const skipSet=cd>0?new Set(recentQueue):null;
     for(let i=0;i<50;i++){
         const a=Math.floor(Math.random()*(aMax-aMin+1))+aMin;
         const b=Math.floor(Math.random()*(bMax-bMin+1))+bMin;
         const op=ops[Math.floor(Math.random()*ops.length)];
+        const expr=`${a}${op}${b}`;
+        if(skipSet&&skipSet.has(expr))continue;
         let res=0,ok=true;
         switch(op){case'+':res=a+b;break;case'-':res=a-b;if(subNonNegative&&res<0)ok=false;break;case'×':res=a*b;break;case'÷':if(b===0){ok=false;break}res=a/b;break}
         if(!ok||!isValidNum(res))continue;
         if(result.min!==undefined&&res<result.min)continue;
         if(result.max!==undefined&&res>result.max)continue;
         if(ruleFn&&!ruleFn(a,b))continue;
-        return{expression:`${a}${op}${b}`,a,b,op,result:res,weight:wc.init,wc,cfg:config,lastUseTime:null,answeredCount:0,consecutiveRight:0,slowThreshold:null,projectId:id,isNew:true};
+        return{expression:expr,a,b,op,result:res,weight:wc.init,wc,cfg:config,lastUseTime:null,answeredCount:0,consecutiveRight:0,slowThreshold:null,projectId:id,isNew:true};
     }
     return null;
 }
@@ -707,12 +819,16 @@ function saveAllWeights(){
     for(const q of questionPool){
         if(!q.projectId||(q.answeredCount??0)<=0)continue;
         sanitizeWeight(q);
-        if(!map[q.projectId])map[q.projectId]=[];
-        map[q.projectId].push({e:q.expression,w:q.weight,c:q.answeredCount,r:q.consecutiveRight});
+        if(!map[q.projectId])map[q.projectId]=new Map();
+        // 同 expression 去重：保留权重最大、答题次数最多的一条
+        const exist=map[q.projectId].get(q.expression);
+        if(!exist||q.weight>exist.w||q.answeredCount>exist.c){
+            map[q.projectId].set(q.expression,{e:q.expression,w:q.weight,c:q.answeredCount,r:q.consecutiveRight});
+        }
     }
     for(const pid in map){
         const p=projects.find(i=>i.id===pid);
-        if(p)p.seen=map[pid];
+        if(p)p.seen=Array.from(map[pid].values());
     }
     saveProjects();
 }
@@ -741,12 +857,32 @@ function compactPool(){
     }
 }
 
+// 将新题加入题池，若同 expression 已存在则合并字段（避免重复条目）
+function pushNewQuestion(q){
+    const exist=questionPool.find(x=>x.projectId===q.projectId&&x.expression===q.expression);
+    if(exist){
+        exist.weight=Math.max(exist.weight,q.weight);
+        exist.answeredCount=Math.max(exist.answeredCount,q.answeredCount);
+        exist.consecutiveRight=q.consecutiveRight;
+        exist.lastUseTime=q.lastUseTime;
+        exist.isNew=false;
+        sanitizeWeight(exist);
+        return exist;
+    }
+    questionPool.push(q);
+    return q;
+}
+
 function pickFromProject(ctx){
     const{id,config}=ctx;
     const cd=config.weight?.cooldown??COOLDOWN_DEFAULT;
     const canGen=config.ops?.length>0;
     let candidates=questionPool.filter(q=>q.projectId===id);
-    if(cd>0&&recentQueue.length>0)candidates=candidates.filter(q=>!recentQueue.includes(q.expression));
+    if(cd>0&&recentQueue.length>0){
+        const filtered=candidates.filter(q=>!recentQueue.includes(q.expression));
+        // 冷却后若无候选题（纯导入题且题量少时常见），忽略冷却限制，避免报"题库异常"
+        if(filtered.length>0)candidates=filtered;
+    }
     const valid=candidates.filter(q=>isValidNum(q.weight)&&q.weight>0);
     let seenW=0;for(const q of valid)seenW+=q.weight;
     const initW=config.weight?.init??2;
@@ -799,8 +935,9 @@ function judgeAnswer(){
     const correctR=roundTo(correct,dp);
     const userR=roundTo(un,dp);
     const err=correctR===0?0:Math.abs(userR-correctR)/correctR*100;
-    // tolPercent=0时用epsilon判断，避免浮点数精度（如3.3000000000000003 vs 3.3）导致正确答案被判错
-    const isCorrect=qcfg.tolPercent<=0?Math.abs(userR-correctR)<1e-9:err<=qcfg.tolPercent;
+    // tolPercent=0时用epsilon判断，避免浮点数精度导致正确答案被判错；同时兜底undefined
+    const tol=isValidNum(qcfg.tolPercent)?qcfg.tolPercent:0;
+    const isCorrect=tol<=0?Math.abs(userR-correctR)<1e-9:err<=tol;
     if(isCorrect){
         isAnswered=true;clearTimeout(timeoutTimer);dom.submitBtn.style.display='none';
         const useTime=(Date.now()-questionStartTime)/1000;
@@ -811,7 +948,7 @@ function judgeAnswer(){
         if(isSlow)currentQuestion.weight=Math.max(wc.min,currentQuestion.weight*wc.slowDecay);
         else currentQuestion.weight=Math.max(wc.min,currentQuestion.weight*wc.fastDecay);
         sanitizeWeight(currentQuestion);
-        if(currentQuestion.isNew){currentQuestion.isNew=false;questionPool.push(currentQuestion);compactPool()}
+        if(currentQuestion.isNew){currentQuestion.isNew=false;pushNewQuestion(currentQuestion);compactPool()}
         recordAnswerTime(currentQuestion.projectId,useTime);
         addRecord(true,un,useTime);updateStatus();
         if(trainingActive)setTimeout(nextQuestion,80);
@@ -831,7 +968,8 @@ function handleWrong(){
     const wc=currentQuestion.wc;
     currentQuestion.weight=Math.min(wc.max,currentQuestion.weight+wc.add);
     sanitizeWeight(currentQuestion);
-    if(currentQuestion.isNew){currentQuestion.isNew=false;questionPool.push(currentQuestion);compactPool()}
+    if(currentQuestion.isNew){currentQuestion.isNew=false;pushNewQuestion(currentQuestion);compactPool()}
+    recordAnswerTime(currentQuestion.projectId,useTime);
     const uv=dom.answerInput.value.trim();
     addRecord(false,uv===''?null:Number(uv),useTime);updateStatus();
     const isLast=totalCount>=currentConfig.totalQuestions;
@@ -859,19 +997,31 @@ function startTrain(projectId){
     const ip=parseImportQuestions(p.config.importText||'',wc,p.config);
     ip.forEach(q=>q.projectId=projectId);
     questionPool=mergeSeenQuestions(p,ip);
+    // 纯导入项目且无有效题目：给出明确提示，不进入训练页面
+    if(!questionPool.length&&!p.config.ops?.length){
+        alert('该项目未识别到有效题目。\n\n请编辑项目，检查"题目导入"格式：每行一道题，或用逗号/分号/顿号分隔，例如 1+2, 3+4');
+        return;
+    }
     cacheSlowThresholds();showQuizPage();
 }
 
 function startMultiTrain(){
     if(!selectedIds.size)return;
     questionPool=[];multiConfigs=[];
+    let canAutoGen=false;
     for(const id of selectedIds){
         const p=projects.find(i=>i.id===id);if(!p)continue;
+        if(p.config.ops?.length)canAutoGen=true;
         const wc=buildWeightConfig(p.config);
         const ip=parseImportQuestions(p.config.importText||'',wc,p.config);
         ip.forEach(q=>q.projectId=id);
         questionPool=questionPool.concat(mergeSeenQuestions(p,ip));
         multiConfigs.push({id,config:p.config,ruleFn:compileRule(p.config.customRule)});
+    }
+    // 所有选中项目都是纯导入且无有效题目
+    if(!questionPool.length&&!canAutoGen){
+        alert('选中的项目均未识别到有效题目。\n\n请编辑项目，检查"题目导入"格式：每行一道题，或用逗号/分号/顿号分隔，例如 1+2, 3+4');
+        return;
     }
     const first=projects.find(p=>selectedIds.has(p.id));
     compiledRule=null;
@@ -929,7 +1079,7 @@ function nextQuestion(){
     if(!trainingActive)return;
     if(totalCount>=currentConfig.totalQuestions){finishTrain();return}
     clearTimeout(timeoutTimer);isAnswered=false;
-    dom.resultBox.style.display='none';dom.nextBtn.style.display='none';
+    dom.resultBox.style.display='none';dom.nextBtn.style.display='none';dom.resultSummary.textContent='';
     dom.recordList.style.display='';document.querySelector('.finish-actions').style.display='flex';
     dom.answerInput.value='';dom.submitBtn.style.display='block';
     currentQuestion=getWeightRandomQuestion();
