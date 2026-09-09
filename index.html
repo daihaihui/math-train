@@ -881,7 +881,36 @@ function startMultiTrain(){
 
 function restartTrain(){
     if(!questionPool.length&&!multiConfigs.length&&currentProjectId===null)return;
-    saveAllWeights();cacheSlowThresholds();
+    saveAllWeights();
+    // 重建题目池，确保每题绑定的cfg是最新配置（修复修改配置后"再来一轮"仍用旧配置的bug）
+    if(currentProjectId!==null){
+        const p=projects.find(i=>i.id===currentProjectId);
+        if(p){
+            compiledRule=compileRule(p.config.customRule);
+            initTrainEnv(p.config);
+            const wc=buildWeightConfig(p.config);
+            const ip=parseImportQuestions(p.config.importText||'',wc,p.config);
+            ip.forEach(q=>q.projectId=currentProjectId);
+            questionPool=mergeSeenQuestions(p,ip);
+        }
+    }else if(multiConfigs.length){
+        questionPool=[];
+        const newMulti=[];
+        for(const ctx of multiConfigs){
+            const p=projects.find(i=>i.id===ctx.id);
+            if(!p)continue;
+            const wc=buildWeightConfig(p.config);
+            const ip=parseImportQuestions(p.config.importText||'',wc,p.config);
+            ip.forEach(q=>q.projectId=ctx.id);
+            questionPool=questionPool.concat(mergeSeenQuestions(p,ip));
+            newMulti.push({id:ctx.id,config:p.config,ruleFn:compileRule(p.config.customRule)});
+        }
+        multiConfigs=newMulti;
+        const first=projects.find(p=>multiConfigs.some(m=>m.id===p.id));
+        compiledRule=null;
+        if(first)initTrainEnv(first.config);
+    }
+    cacheSlowThresholds();
     totalCount=0;rightCount=0;trainRecords=[];totalUseTime=0;isAnswered=false;recentQueue=[];trainingActive=true;
     dom.resultBox.style.display='none';dom.statusBar.textContent='';nextQuestion();
 }
@@ -904,6 +933,11 @@ function nextQuestion(){
     dom.answerInput.value='';dom.submitBtn.style.display='block';
     currentQuestion=getWeightRandomQuestion();
     if(!currentQuestion){alert('题库异常，请返回重试');exitTrain();return}
+    // 强制用项目最新配置覆盖题目绑定的cfg，确保小数位/答案格式等始终是最新设置
+    if(currentQuestion.projectId){
+        const p=projects.find(i=>i.id===currentQuestion.projectId);
+        if(p)currentQuestion.cfg=p.config;
+    }
     pushCooldown(currentQuestion);
     const qcfg=currentQuestion.cfg||currentConfig;
     const qSuffix=qcfg.answerFormat==='percent'?'%':'';
