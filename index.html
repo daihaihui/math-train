@@ -136,7 +136,7 @@ input[type="checkbox"]:checked::after{content:'';position:absolute;top:2px;left:
     <div class="setting-row"><label>结果范围</label><input type="number" id="resMin" placeholder="不限制"><span class="range-split">~</span><input type="number" id="resMax" placeholder="不限制"></div>
     <div class="setting-row"><label>自定义规则</label><input type="text" id="customRule" placeholder="如 A-10<B"></div>
     <div class="rule-error-tip" id="ruleErrorTip"></div>
-    <div class="section-tip">格式：左表达式 比较符 右表达式。变量A、B，支持+-*/()和&lt;&gt;&lt;=&gt;==。</div>
+    <div class="section-tip">格式：左表达式 比较符 右表达式。变量 a（前操作数）、b（后操作数），支持+-*/()和&lt;&gt;&lt;=&gt;==。</div>
     <div class="checkbox-row"><input type="checkbox" id="subNonNegative" checked><label for="subNonNegative">减法保证结果非负</label></div>
     <div class="section-title">权重参数设置</div>
     <div class="section-tip">答错升权；答对都衰减，又快又准衰减更多，答对但慢衰减少一点。</div>
@@ -153,6 +153,8 @@ input[type="checkbox"]:checked::after{content:'';position:absolute;top:2px;left:
     <div class="section-tip">最近N道出过的题暂时不抽。自动生成的题只保存做过的记录。</div>
     <div class="section-title">训练参数设置</div>
     <div class="setting-row"><label>允许误差率(%)</label><input type="number" id="tolPercentInput" value="0" min="0" step="0.1"></div>
+    <div class="setting-row"><label>结果保留小数位</label><input type="number" id="decimalPlacesInput" value="0" min="0" max="6" step="1"></div>
+    <div class="setting-row"><label>答案格式</label><select id="answerFormatInput"><option value="number">普通数值</option><option value="percent">百分数(自动×100)</option></select></div>
     <div class="setting-row"><label>单题时限(秒)</label><input type="number" id="timeInput" value="3" min="0.1" step="0.1"></div>
     <div class="setting-row"><label>总题量</label><input type="number" id="totalInput" value="10" min="1" step="1"></div>
     <div class="checkbox-row"><input type="checkbox" id="pauseOnWrong" checked><label for="pauseOnWrong">答错后暂停显示正确答案</label></div>
@@ -165,7 +167,7 @@ input[type="checkbox"]:checked::after{content:'';position:absolute;top:2px;left:
 <div id="quizBody">
     <button id="backBtn" onclick="exitTrain()">返回</button>
     <div id="question">准备中...</div>
-    <input type="number" id="answerInput" placeholder="输入答案">
+    <div style="position:relative"><input type="number" id="answerInput" placeholder="输入答案" style="padding-right:42px"><span id="percentSuffix" style="position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:24px;color:#888;display:none;pointer-events:none">%</span></div>
     <button id="submitBtn" onclick="submitAnswer()">提交答案</button>
     <div id="resultBox">
         <div id="resultSummary"></div>
@@ -180,7 +182,7 @@ input[type="checkbox"]:checked::after{content:'';position:absolute;top:2px;left:
     <div id="statusBar"></div>
 </div>
 <script>
-const STORAGE_KEY='math_train_v2';
+const STORAGE_KEY='math_train_v3';
 const BACKUP_VERSION='1.0';
 const COOLDOWN_DEFAULT=3;
 const NEW_QUESTION_BIAS=10;
@@ -188,15 +190,12 @@ const POOL_SOFT_LIMIT=120;
 const STORAGE_LIMIT=5*1024*1024;
 
 const DEFAULT_PROJECTS=[
-    {id:'d1',name:'20以内退位减法',config:{ops:['-'],numA:{min:11,max:18},numB:{min:2,max:9},result:{},customRule:'',subNonNegative:true,weight:{init:2,add:5,fastDecay:0.8,slowDecay:0.95,min:1,max:20,cooldown:3,slowMode:'P50',slowFixed:3},tolPercent:0,timeLimit:3,totalQuestions:10,pauseOnWrong:true,importText:''}},
-    {id:'d2',name:'100以内加法',config:{ops:['+'],numA:{min:10,max:89},numB:{min:1,max:9},result:{max:100},customRule:'',subNonNegative:true,weight:{init:2,add:5,fastDecay:0.8,slowDecay:0.95,min:1,max:20,cooldown:3,slowMode:'P50',slowFixed:3},tolPercent:0,timeLimit:5,totalQuestions:10,pauseOnWrong:true,importText:''}},
-    {id:'d3',name:'乘法口诀表',config:{ops:['×'],numA:{min:2,max:9},numB:{min:2,max:9},result:{},customRule:'',subNonNegative:true,weight:{init:2,add:5,fastDecay:0.8,slowDecay:0.95,min:1,max:20,cooldown:3,slowMode:'P50',slowFixed:3},tolPercent:0,timeLimit:4,totalQuestions:10,pauseOnWrong:true,importText:''}},
-    {id:'d4',name:'20以内加减混合',config:{ops:['+','-'],numA:{min:1,max:19},numB:{min:1,max:19},result:{min:0,max:20},customRule:'',subNonNegative:true,weight:{init:2,add:5,fastDecay:0.8,slowDecay:0.95,min:1,max:20,cooldown:3,slowMode:'P50',slowFixed:3},tolPercent:0,timeLimit:3,totalQuestions:10,pauseOnWrong:true,importText:''}}
+    {id:'d1',name:'20以内退位减法',config:{ops:['-'],numA:{min:11,max:18},numB:{min:2,max:9},result:{},customRule:'a-10<b',subNonNegative:true,weight:{init:2,add:5,fastDecay:0.8,slowDecay:0.95,min:1,max:20,cooldown:3,slowMode:'P50',slowFixed:3},tolPercent:0,timeLimit:3,totalQuestions:10,pauseOnWrong:true,decimalPlaces:0,answerFormat:'number',importText:''}}
 ];
 
 const dom={};
 function initDomCache(){
-    ['listPanel','editPanel','quizBody','projectList','selectAll','startMultiBtn','exportAllBtn','editTitle','question','answerInput','submitBtn','nextBtn','resultBox','resultSummary','recordList','exportBtn','endGameBtn','statusBar','customRule','ruleErrorTip','storageInfo','storageBar','slowFixedRow'].forEach(id=>dom[id]=document.getElementById(id));
+    ['listPanel','editPanel','quizBody','projectList','selectAll','startMultiBtn','exportAllBtn','editTitle','question','answerInput','percentSuffix','submitBtn','nextBtn','resultBox','resultSummary','recordList','exportBtn','endGameBtn','statusBar','customRule','ruleErrorTip','storageInfo','storageBar','slowFixedRow'].forEach(id=>dom[id]=document.getElementById(id));
 }
 
 let projects=[],currentProjectId=null,selectedIds=new Set();
@@ -209,6 +208,38 @@ let multiConfigs=[];
 const isValidNum=v=>typeof v==='number'&&isFinite(v)&&!isNaN(v);
 const numOr=(v,fb)=>isValidNum(v)?v:fb;
 
+function roundTo(value,decimals){
+    if(!isValidNum(value))return value;
+    const d=Math.max(0,Math.floor(decimals||0));
+    if(d===0)return Math.round(value);
+    const factor=Math.pow(10,d);
+    return Math.round(value*factor)/factor;
+}
+function formatNum(value,decimals){
+    const v=roundTo(value,decimals);
+    if(!isValidNum(v))return '异常';
+    return v.toFixed(Math.max(0,Math.floor(decimals||0)));
+}
+function hasEnoughDecimals(inputStr,decimals){
+    const d=Math.max(0,Math.floor(decimals||0));
+    if(d<=0)return true;
+    const s=String(inputStr||'').trim();
+    if(s==='')return false;
+    const dot=s.indexOf('.');
+    if(dot===-1)return false;
+    return s.substring(dot+1).length>=d;
+}
+function getDisplayResult(raw,config){
+    if(config&&config.answerFormat==='percent')return raw*100;
+    return raw;
+}
+function formatAnswer(value,config){
+    const dp=config?config.decimalPlaces||0:0;
+    const s=formatNum(value,dp);
+    if(config&&config.answerFormat==='percent')return s+'%';
+    return s;
+}
+
 function migrateConfig(cfg){
     if(!cfg||typeof cfg!=='object')return null;
     if(!Array.isArray(cfg.ops))cfg.ops=[];
@@ -220,6 +251,8 @@ function migrateConfig(cfg){
     if(cfg.customRule===undefined)cfg.customRule='';
     if(cfg.importText===undefined)cfg.importText='';
     if(!isValidNum(cfg.tolPercent))cfg.tolPercent=0;
+    if(!isValidNum(cfg.decimalPlaces))cfg.decimalPlaces=0;
+    if(cfg.answerFormat!=='number'&&cfg.answerFormat!=='percent')cfg.answerFormat='number';
     if(!isValidNum(cfg.timeLimit))cfg.timeLimit=3;
     if(!isValidNum(cfg.totalQuestions))cfg.totalQuestions=10;
     const w=cfg.weight||{};
@@ -504,7 +537,7 @@ function openEdit(id){
         sv('slowFixed',c.weight.slowFixed);
         sv('fastDecay',c.weight.fastDecay);sv('slowDecay',c.weight.slowDecay);
         sv('weightMin',c.weight.min);sv('weightMax',c.weight.max);sv('cooldownCount',c.weight.cooldown);
-        sv('tolPercentInput',c.tolPercent);sv('timeInput',c.timeLimit);sv('totalInput',c.totalQuestions);
+        sv('tolPercentInput',c.tolPercent);sv('decimalPlacesInput',c.decimalPlaces);document.getElementById('answerFormatInput').value=c.answerFormat||'number';sv('timeInput',c.timeLimit);sv('totalInput',c.totalQuestions);
         sc('pauseOnWrong',c.pauseOnWrong);
         sv('importArea',c.importText);
     }else{
@@ -513,7 +546,7 @@ function openEdit(id){
         sv('weightInit',2);sv('weightAdd',5);document.getElementById('slowMode').value='P50';sv('slowFixed',3);
         sv('fastDecay',0.8);sv('slowDecay',0.95);
         sv('weightMin',1);sv('weightMax',20);sv('cooldownCount',COOLDOWN_DEFAULT);
-        sv('tolPercentInput',0);sv('timeInput',3);sv('totalInput',10);sc('pauseOnWrong',true);sv('importArea','');
+        sv('tolPercentInput',0);sv('decimalPlacesInput',0);document.getElementById('answerFormatInput').value='number';sv('timeInput',3);sv('totalInput',10);sc('pauseOnWrong',true);sv('importArea','');
     }
     toggleSlowFixed();
     dom.listPanel.style.display='none';dom.editPanel.style.display='block';
@@ -554,6 +587,8 @@ function saveProject(){
             slowFixed:Math.max(0.1,gni('slowFixed',3))
         },
         tolPercent:Math.max(0,gni('tolPercentInput',0)),
+        decimalPlaces:Math.max(0,Math.min(6,Math.floor(gni('decimalPlacesInput',0)))),
+        answerFormat:document.getElementById('answerFormatInput').value,
         timeLimit:Math.max(0.1,gni('timeInput',3)),
         totalQuestions:Math.max(1,Math.floor(gni('totalInput',10))),
         pauseOnWrong:document.getElementById('pauseOnWrong').checked,
@@ -593,8 +628,10 @@ function exportSelectedProjects(){
         if(!wrong.length)continue;
         for(const q of wrong){
             const info=parseExpression(q.e);
-            const result=info?info.result:0;
-            csv+=`"${p.name}","=""${csvEscape(q.e)}""",${result.toFixed(3)},${q.w.toFixed(2)},${q.r??0}\n`;
+            const resultRaw=info?info.result:0;
+            const result=getDisplayResult(resultRaw,p.config);
+            const resultStr=formatAnswer(result,p.config);
+            csv+=`"${p.name}","=""${csvEscape(q.e)}""","${resultStr}",${q.w.toFixed(2)},${q.r??0}\n`;
         }
         cnt+=wrong.length;
     }
@@ -740,8 +777,11 @@ function pushCooldown(q){
 }
 
 function addRecord(isRight,userAnswer,useTime){
-    const correct=currentQuestion.result;
-    const err=(correct===0||!isValidNum(correct))?0:Math.abs(userAnswer-correct)/correct*100;
+    const dp=currentConfig.decimalPlaces||0;
+    const correctRaw=getDisplayResult(currentQuestion.result,currentConfig);
+    const correct=roundTo(correctRaw,dp);
+    const user=userAnswer===null?null:roundTo(userAnswer,dp);
+    const err=(correct===0||!isValidNum(correct)||user===null)?0:Math.abs(user-correct)/correct*100;
     trainRecords.push({index:totalCount,expression:currentQuestion.expression,correct,user:userAnswer,isRight,errorRate:err,useTime});
 }
 
@@ -751,9 +791,13 @@ function judgeAnswer(){
     if(val==='')return false;
     const un=Number(val);
     if(!isValidNum(un))return false;
-    const correct=currentQuestion.result;
-    if(!isValidNum(correct)){handleWrong();return false}
-    const err=correct===0?0:Math.abs(un-correct)/correct*100;
+    const correctRaw=currentQuestion.result;
+    if(!isValidNum(correctRaw)){handleWrong();return false}
+    const correct=getDisplayResult(correctRaw,currentConfig);
+    const dp=currentConfig.decimalPlaces||0;
+    const correctR=roundTo(correct,dp);
+    const userR=roundTo(un,dp);
+    const err=correctR===0?0:Math.abs(userR-correctR)/correctR*100;
     if(err<=currentConfig.tolPercent){
         isAnswered=true;clearTimeout(timeoutTimer);dom.submitBtn.style.display='none';
         const useTime=(Date.now()-questionStartTime)/1000;
@@ -793,7 +837,8 @@ function handleWrong(){
         return;
     }
     dom.answerInput.blur();
-    const ct=isValidNum(currentQuestion.result)?currentQuestion.result.toFixed(3):'异常';
+    const correctDisplay=getDisplayResult(currentQuestion.result,currentConfig);
+    const ct=formatAnswer(correctDisplay,currentConfig);
     dom.resultSummary.innerHTML=`<span class="wrong">❌ 答错</span><br>正确答案：${ct}`;
     dom.recordList.innerHTML='';dom.recordList.style.display='none';
     document.querySelector('.finish-actions').style.display='none';
@@ -857,7 +902,9 @@ function nextQuestion(){
     currentQuestion=getWeightRandomQuestion();
     if(!currentQuestion){alert('题库异常，请返回重试');exitTrain();return}
     pushCooldown(currentQuestion);
-    dom.question.textContent=`${currentQuestion.expression} = ?`;
+    const qSuffix=currentConfig.answerFormat==='percent'?'%':'';
+    dom.question.textContent=`${currentQuestion.expression} = ?${qSuffix}`;
+    dom.percentSuffix.style.display=currentConfig.answerFormat==='percent'?'block':'none';
     questionStartTime=Date.now();
     setTimeout(()=>{if(trainingActive)dom.answerInput.focus()},50);
     timeoutTimer=setTimeout(()=>{if(trainingActive)handleWrong()},currentConfig.timeLimit*1000);
@@ -875,9 +922,9 @@ function finishTrain(){
     let lh=`<div class="record-header"><span class="record-index">序号</span><span class="record-question">题目</span><span class="record-user">答案</span><span class="record-correct">正确</span><span class="record-error">误差</span><span class="record-time">用时</span></div>`;
     for(let i=trainRecords.length-1;i>=0;i--){
         const item=trainRecords[i];
-        const ut=item.user===null?'未答':item.user;
+        const ut=item.user===null?'未答':formatAnswer(item.user,currentConfig);
         const et=item.isRight?'0.0%':item.errorRate.toFixed(1)+'%';
-        const ct=isValidNum(item.correct)?item.correct.toFixed(3):'异常';
+        const ct=formatAnswer(item.correct,currentConfig);
         const tt=isValidNum(item.useTime)?item.useTime.toFixed(1)+'s':'-';
         lh+=`<div class="record-item ${item.isRight?'right':'wrong'}"><span class="record-index">${item.index}</span><span class="record-question">${item.expression}</span><span class="record-user">${ut}</span><span class="record-correct">${ct}</span><span class="record-error">${et}</span><span class="record-time">${tt}</span></div>`;
     }
@@ -908,16 +955,16 @@ function exportWrongQuestions(){
     if(!wrong.length)return;
     let csv='序号,题目,你的答案,正确答案,误差率(%),用时(秒)\n';
     for(const item of wrong){
-        const ut=item.user===null?'未作答':item.user;
-        const ct=isValidNum(item.correct)?item.correct.toFixed(3):'异常';
+        const ut=item.user===null?'未作答':formatAnswer(item.user,currentConfig);
+        const ct=formatAnswer(item.correct,currentConfig);
         const tt=isValidNum(item.useTime)?item.useTime.toFixed(1):'';
-        csv+=`${item.index},"=""${csvEscape(item.expression)}""","${ut}",${ct},${item.errorRate.toFixed(1)},${tt}\n`;
+        csv+=`${item.index},"=""${csvEscape(item.expression)}""","${ut}","${ct}",${item.errorRate.toFixed(1)},${tt}\n`;
     }
     copyToClipboard(csv);
 }
 
 function bindEvents(){
-    dom.answerInput.addEventListener('input',()=>{if(!isAnswered&&trainingActive)judgeAnswer()});
+    dom.answerInput.addEventListener('input',()=>{if(!isAnswered&&trainingActive&&hasEnoughDecimals(dom.answerInput.value,currentConfig?.decimalPlaces||0))judgeAnswer()});
     dom.customRule.addEventListener('input',()=>{const v=dom.customRule.value.trim();if(!v){showRuleError('');return}const c=validateCustomRule(v);showRuleError(c.valid?'':c.message)});
     document.addEventListener('keydown',e=>{
         if(e.key!=='Enter')return;
